@@ -1,0 +1,14 @@
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS full_name TEXT,
+  ADD COLUMN IF NOT EXISTS employment_id TEXT,
+  ADD COLUMN IF NOT EXISTS designation TEXT,
+  ADD COLUMN IF NOT EXISTS department TEXT,
+  ADD COLUMN IF NOT EXISTS office_location TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+UPDATE public.users
+SET
+  full_name = COALESCE(full_name, name),
+  updated_at = NOW()
+WHERE full_name IS NULL;
