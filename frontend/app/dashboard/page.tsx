@@ -45,7 +45,7 @@ export default function DashboardLanding() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
               MM
             </div>
-            <span className="font-bold text-lg text-foreground">Mentor Hub</span>
+            <span className="font-bold text-lg text-foreground">Mentor Mentee Hub</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -133,7 +133,7 @@ export default function DashboardLanding() {
       {/* Footer */}
       <footer className="border-t border-border bg-card/50 backdrop-blur py-6">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 MentorMinds. All rights reserved.</p>
+          <p>&copy; 2024 Mentor Mentee Hub. All rights reserved.</p>
         </div>
       </footer>
     </div>

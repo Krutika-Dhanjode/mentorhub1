@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'MentorMinds',
-  description: 'College mentorship management platform - MentorMinds',
+  title: 'Mentor Mentee Hub',
+  description: 'College mentorship management platform - Mentor Mentee Hub',
   generator: 'v0.app',
   icons: {
     icon: [

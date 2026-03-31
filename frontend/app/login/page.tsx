@@ -98,7 +98,7 @@ export default function LoginPage() {
               MM
             </div>
             <span className="font-semibold text-base text-foreground">
-              Mentor Hub
+              Mentor Mentee Hub
             </span>
           </div>
 

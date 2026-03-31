@@ -62,7 +62,7 @@ export default function HODSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+        <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">Update your profile information</p>
       </div>
 

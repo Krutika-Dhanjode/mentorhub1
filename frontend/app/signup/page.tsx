@@ -200,7 +200,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, GraduationCap, Users, UserCog } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -221,47 +220,9 @@ export default function SignupPage() {
   // ✅ added states
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [prn, setPrn] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-
-  const saveUserProfile = async (userId: string) => {
-    let profileError: any = null
-
-    const profilePayload = {
-      id: userId,
-      name,
-      full_name: name,
-      email,
-      role,
-    }
-
-    const { error: primaryProfileError } = await supabase
-      .from('users')
-      .upsert(profilePayload, { onConflict: 'id' })
-
-    profileError = primaryProfileError
-
-    if (
-      profileError &&
-      profileError.message.toLowerCase().includes('full_name')
-    ) {
-      const { error: fallbackProfileError } = await supabase
-        .from('users')
-        .upsert(
-          {
-            id: userId,
-            name,
-            email,
-            role,
-          },
-          { onConflict: 'id' },
-        )
-
-      profileError = fallbackProfileError
-    }
-
-    return profileError
-  }
 
   // ✅ UPDATED FUNCTION
   const handleSubmit = async (e: React.FormEvent) => {
@@ -277,6 +238,11 @@ export default function SignupPage() {
       return
     }
 
+    if (role === 'student' && !prn.trim()) {
+      alert('Please enter PRN number')
+      return
+    }
+
     setIsLoading(true)
 
     // 🔐 signup
@@ -284,36 +250,15 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: "http://localhost:3000/login",
+        data: {
+          name,
+          role,
+          prn: role === 'student' ? prn.trim() : '',
+        },
       },
     })
 
     if (error) {
-      if (error.message.toLowerCase().includes('already registered')) {
-        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (!loginError && loginData.user) {
-          const profileError = await saveUserProfile(loginData.user.id)
-
-          if (profileError) {
-            alert('Account exists, but profile sync failed: ' + profileError.message)
-          } else {
-            alert('This account already exists. Your profile has been synced, so please log in.')
-            router.push('/login')
-          }
-
-          setIsLoading(false)
-          return
-        }
-
-        alert('This email is already registered. Please log in instead, or use a different email.')
-        setIsLoading(false)
-        return
-      }
-
       alert(error.message)
       setIsLoading(false)
       return
@@ -323,20 +268,6 @@ export default function SignupPage() {
 
     if (!user) {
       alert('Unexpected signup error; user record missing')
-      setIsLoading(false)
-      return
-    }
-
-    // Ensure profile row exists in users table.
-    // Fall back to the older schema if the new columns are not added yet.
-    const profileError = await saveUserProfile(user.id)
-
-    if (profileError) {
-      console.error('Profile save error:', profileError)
-      alert(
-        'Database error saving new user: ' +
-          (profileError.message || JSON.stringify(profileError))
-      )
       setIsLoading(false)
       return
     }
@@ -351,23 +282,18 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-lg border-0">
         <div className="p-8">
 
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <Image 
-              src="/logo.png" 
-              alt="MentorMinds Logo" 
-              width={80} 
-              height={80}
-              className="object-contain w-auto h-auto"
-              priority
-            />
+          <div className="mb-6 flex items-center justify-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-base font-bold text-primary-foreground">
+              MM
+            </div>
+            <span className="text-xl font-semibold text-foreground">Mentor Mentee Hub</span>
           </div>
 
           {/* Heading */}
           <div className="space-y-2 text-center mb-6">
             <h1 className="text-2xl font-bold text-foreground">Create Account</h1>
             <p className="text-muted-foreground text-sm">
-              Join MentorMinds platform
+              Join Mentor Mentee Hub platform
             </p>
           </div>
 
@@ -436,6 +362,23 @@ export default function SignupPage() {
                 required
               />
             </div>
+
+            {role === 'student' && (
+              <div className="space-y-2">
+                <Label htmlFor="prn" className="text-sm font-semibold text-foreground">
+                  PRN Number
+                </Label>
+                <Input
+                  id="prn"
+                  type="text"
+                  placeholder="Enter your PRN number"
+                  value={prn}
+                  onChange={(e) => setPrn(e.target.value)}
+                  className="bg-input border-border focus-visible:ring-primary h-10"
+                  required={role === 'student'}
+                />
+              </div>
+            )}
 
             {/* Password Field */}
             <div className="space-y-2">

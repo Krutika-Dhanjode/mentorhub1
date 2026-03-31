@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Users, Calendar, Settings, LogOut, TrendingUp, UserCog, Layers3 } from 'lucide-react'
+import { Menu, X, Users, Calendar, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -28,21 +29,23 @@ export function AppSidebar({ userRole = 'HOD' }: AppSidebarProps) {
       return [
         { label: 'My Batches', href: '/dashboard/student/batches', icon: <Layers3 className="w-5 h-5" /> },
         { label: 'Meetings', href: '/dashboard/student/meetings', icon: <Calendar className="w-5 h-5" /> },
-        { label: 'Add Progress', href: '/dashboard/student/progress', icon: <TrendingUp className="w-5 h-5" /> },
-        { label: 'Settings', href: '/dashboard/student/settings', icon: <Settings className="w-5 h-5" /> },
+        { label: 'Guidance', href: '/dashboard/student/guidance', icon: <MessageSquare className="w-5 h-5" /> },
+        { label: 'Progress', href: '/dashboard/student/progress', icon: <TrendingUp className="w-5 h-5" /> },
+        { label: 'Profile', href: '/dashboard/student/settings', icon: <Settings className="w-5 h-5" /> },
       ]
     } else if (normalizedRole === 'mentor') {
       return [
         { label: 'Students', href: '/dashboard/mentor/students', icon: <Users className="w-5 h-5" /> },
         { label: 'Meetings', href: '/dashboard/mentor/meetings', icon: <Calendar className="w-5 h-5" /> },
-        { label: 'Settings', href: '/dashboard/mentor/settings', icon: <Settings className="w-5 h-5" /> },
+        { label: 'Guidance', href: '/dashboard/mentor/guidance', icon: <MessageSquare className="w-5 h-5" /> },
+        { label: 'Profile', href: '/dashboard/mentor/settings', icon: <Settings className="w-5 h-5" /> },
       ]
     } else {
       // HOD
       return [
         { label: 'Mentors', href: '/dashboard/hod/mentors', icon: <UserCog className="w-5 h-5" /> },
         { label: 'Meetings', href: '/dashboard/hod/meetings', icon: <Calendar className="w-5 h-5" /> },
-        { label: 'Settings', href: '/dashboard/hod/settings', icon: <Settings className="w-5 h-5" /> },
+        { label: 'Profile', href: '/dashboard/hod/settings', icon: <Settings className="w-5 h-5" /> },
       ]
     }
   }
@@ -69,10 +72,14 @@ export function AppSidebar({ userRole = 'HOD' }: AppSidebarProps) {
         {/* Logo */}
         <div className="h-16 flex items-center border-b border-sidebar-border px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm flex-shrink-0">
-              MM
-            </div>
-            {isOpen && <span className="font-semibold text-sm whitespace-nowrap">Mentor Hub</span>}
+            <Image
+              src="/logo.png"
+              alt="Mentor Mentee Hub logo"
+              width={32}
+              height={32}
+              className="object-contain rounded-lg"
+            />
+            {isOpen && <span className="font-semibold text-sm whitespace-nowrap">Mentor Mentee Hub</span>}
           </Link>
         </div>
 

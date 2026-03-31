@@ -87,7 +87,7 @@ export default function MentorSettingsPage() {
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+        <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your profile information</p>
       </div>
 
@@ -113,7 +113,7 @@ export default function MentorSettingsPage() {
         </div>
 
         <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Edit Profile</h3>
+          <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Profile</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">

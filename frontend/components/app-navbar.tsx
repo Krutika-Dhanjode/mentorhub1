@@ -90,7 +90,7 @@ export function AppNavbar({ title = 'Dashboard' }: NavbarProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push(`/dashboard/${user?.role}/settings`)}>Edit Profile</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/dashboard/${user?.role}/settings`)}>Profile</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={handleLogout}>Logout</DropdownMenuItem>
           </DropdownMenuContent>

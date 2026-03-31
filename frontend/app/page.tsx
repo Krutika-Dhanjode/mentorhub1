@@ -132,7 +132,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border bg-card/50 backdrop-blur py-8">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 MentorMinds. All rights reserved.</p>
+          <p>&copy; 2024 Mentor Mentee Hub. All rights reserved.</p>
         </div>
       </footer>
     </div>

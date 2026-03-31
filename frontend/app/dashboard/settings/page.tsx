@@ -20,7 +20,7 @@ export default function SettingsPage() {
     <div className="space-y-8 max-w-2xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+        <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your profile information</p>
       </div>
 
@@ -30,7 +30,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
-              Edit Profile
+              Profile
             </h2>
             <p className="text-sm text-muted-foreground mt-1">Update your personal details</p>
           </div>

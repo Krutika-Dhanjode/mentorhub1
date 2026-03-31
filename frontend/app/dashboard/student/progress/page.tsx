@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from 'react'
 import { Plus, TrendingUp, Award, FileText, Upload, Paperclip } from 'lucide-react'
+import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { useUser } from '@/hooks/use-user'
 import { createClient } from '@/lib/supabase/client'
 
@@ -40,6 +42,7 @@ interface ProgressEntry {
   title: string
   description: string
   valueText: string
+  numericValue: number | null
   attachmentNames: string[]
   attachmentUrls: string[]
   createdAt: string
@@ -84,6 +87,7 @@ export default function StudentProgressPage() {
       title: entry.title,
       description: entry.description || 'No description provided',
       valueText: entry.value_text || (entry.score != null ? String(entry.score) : ''),
+      numericValue: entry.score != null ? Number(entry.score) : null,
       attachmentNames: entry.attachment_names || [],
       attachmentUrls: entry.attachments || [],
       createdAt: entry.created_at || entry.date,
@@ -189,6 +193,20 @@ export default function StudentProgressPage() {
   const marksCount = useMemo(() => progress.filter((entry) => entry.entryType === 'marks').length, [progress])
   const skillsCount = useMemo(() => progress.filter((entry) => entry.entryType === 'skill').length, [progress])
   const reportsCount = useMemo(() => progress.filter((entry) => entry.entryType === 'report').length, [progress])
+  const marksChartData = useMemo(() => {
+    return [...progress]
+      .filter((entry) => entry.entryType === 'marks' && entry.numericValue != null)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .map((entry, index) => ({
+        label: `Entry ${index + 1}`,
+        date: new Date(entry.createdAt).toLocaleDateString(undefined, {
+          day: '2-digit',
+          month: 'short',
+        }),
+        score: entry.numericValue as number,
+      }))
+  }, [progress])
+  const hasMarksTrend = marksChartData.length > 0
 
   if (loading || dataLoading) {
     return <p className="text-sm text-muted-foreground">Loading your progress...</p>
@@ -198,7 +216,7 @@ export default function StudentProgressPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Add Progress</h1>
+          <h1 className="text-3xl font-bold text-foreground">Progress</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Keep a lifetime record of your marks, certifications, reports, and uploads.
           </p>
@@ -344,6 +362,74 @@ export default function StudentProgressPage() {
           </div>
         </Card>
       </div>
+
+      <Card className="border-border bg-card p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Progress Tracker</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {hasMarksTrend
+                ? 'This bar chart shows your marks trend with each entry.'
+                : 'Add marks or CGPA entries to see a score trend graph here.'}
+            </p>
+          </div>
+          <Badge className="bg-primary/10 text-primary">
+            {progress.length} total entries
+          </Badge>
+        </div>
+
+        {!hasMarksTrend ? (
+          <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+            Add a marks/CGPA entry to start a clean trend line graph.
+          </div>
+        ) : (
+          <ChartContainer
+            className="h-72 w-full"
+            config={{
+              score: {
+                label: 'Marks / CGPA',
+                color: 'hsl(var(--primary))',
+              },
+            }}
+          >
+            <BarChart data={marksChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                width={60}
+                domain={[0, 10]}
+                ticks={[0, 2, 4, 6, 8, 10]}
+              />
+              <ChartTooltip
+                cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.label || 'Entry'}
+                    formatter={(value) => [
+                      `${value}`,
+                      'Marks / CGPA',
+                    ]}
+                  />
+                }
+              />
+              <Bar
+                dataKey="score"
+                fill="#3b82f6"
+                radius={[8, 8, 0, 0]}
+                animationDuration={700}
+                barSize={32}
+              />
+            </BarChart>
+          </ChartContainer>
+        )}
+      </Card>
 
       <Card className="border-border bg-secondary/20 p-5">
         <div className="flex items-start gap-4">

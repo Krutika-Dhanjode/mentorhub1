@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import CreateBatchModal from "@/components/create-batch-modal";
 import { createClient } from "@/lib/supabase/client";
 
 interface Meeting {
@@ -39,7 +38,6 @@ export default function MentorMeetingsPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [newMeeting, setNewMeeting] = useState({
     batch: "",
     date: "",
@@ -48,16 +46,16 @@ export default function MentorMeetingsPage() {
     agenda: "",
   });
 
-  // ✅ GET USER
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
     };
+
     getUser();
   }, []);
 
-  const fetchMeetings = async () => {
+  const fetchMeetings = async (currentBatches: Batch[] = batches) => {
     if (!user) return;
 
     setLoading(true);
@@ -68,17 +66,20 @@ export default function MentorMeetingsPage() {
       .eq("mentor_id", user.id)
       .order("scheduled_at", { ascending: true });
 
-    const formatted: Meeting[] = (data || []).map((m: any) => ({
-      id: m.id,
-      batchId: m.batch_id ?? null,
-      batch: m.batch || batches.find((batch) => batch.id === m.batch_id)?.name || "Unassigned Batch",
-      scheduledAt: m.scheduled_at,
-      date: new Date(m.scheduled_at).toLocaleDateString(),
-      time: new Date(m.scheduled_at).toLocaleTimeString([], {
+    const formatted: Meeting[] = (data || []).map((meeting: any) => ({
+      id: meeting.id,
+      batchId: meeting.batch_id ?? null,
+      batch:
+        meeting.batch ||
+        currentBatches.find((batch) => batch.id === meeting.batch_id)?.name ||
+        "Unassigned Batch",
+      scheduledAt: meeting.scheduled_at,
+      date: new Date(meeting.scheduled_at).toLocaleDateString(),
+      time: new Date(meeting.scheduled_at).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      description: m.description || "No description",
+      description: meeting.description || "No description",
     }));
 
     setMeetings(formatted);
@@ -91,6 +92,7 @@ export default function MentorMeetingsPage() {
     const { data, error } = await supabase
       .from("batches")
       .select("id, name")
+      .eq("mentor_id", user.id)
       .order("name", { ascending: true });
 
     if (error) {
@@ -98,23 +100,17 @@ export default function MentorMeetingsPage() {
       return;
     }
 
-    setBatches((data || []) as Batch[]);
+    const loadedBatches = (data || []) as Batch[];
+    setBatches(loadedBatches);
+    await fetchMeetings(loadedBatches);
   };
 
-  // ✅ FETCH MEETINGS FROM DB
   useEffect(() => {
     if (user) {
       fetchBatches();
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user) {
-      fetchMeetings();
-    }
-  }, [user, batches.length]);
-
-  // ✅ INSERT INTO DB
   const handleScheduleMeeting = async () => {
     if (!newMeeting.batch || !newMeeting.date || !newMeeting.time || !newMeeting.venue) return;
     if (!user) return;
@@ -134,7 +130,7 @@ export default function MentorMeetingsPage() {
     });
 
     if (!error) {
-      alert("Meeting saved in database");
+      alert("Meeting saved successfully.");
       await fetchMeetings();
     }
 
@@ -142,49 +138,18 @@ export default function MentorMeetingsPage() {
     setIsDialogOpen(false);
   };
 
-  const handleCreateBatch = async (batchData: {
-    name: string;
-    year: string;
-    department: string;
-  }) => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("batches")
-      .insert({
-        name: batchData.name,
-        mentor_id: user.id,
-      })
-      .select("id, name")
-      .single();
-
-    if (error) {
-      alert("Unable to create batch: " + error.message);
-      return;
-    }
-
-    const createdBatch = data as Batch;
-    setBatches((current) =>
-      [...current, createdBatch].sort((a, b) => a.name.localeCompare(b.name)),
-    );
-    setNewMeeting((current) => ({ ...current, batch: createdBatch.id }));
-    setIsBatchModalOpen(false);
-    alert("Batch created in database successfully.");
-  };
-
-  const upcomingMeetings = meetings.filter((m) => {
-    const scheduledDate = new Date(m.scheduledAt);
+  const upcomingMeetings = meetings.filter((meeting) => {
+    const scheduledDate = new Date(meeting.scheduledAt);
     return !Number.isNaN(scheduledDate.getTime()) && scheduledDate >= new Date();
   });
 
-  const pastMeetings = meetings.filter((m) => {
-    const scheduledDate = new Date(m.scheduledAt);
+  const pastMeetings = meetings.filter((meeting) => {
+    const scheduledDate = new Date(meeting.scheduledAt);
     return !Number.isNaN(scheduledDate.getTime()) && scheduledDate < new Date();
   });
 
   return (
     <div className="space-y-8">
-      {/* HEADER */}
       <div className="flex justify-between">
         <h1 className="text-3xl font-bold">Meetings</h1>
 
@@ -203,19 +168,9 @@ export default function MentorMeetingsPage() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm font-medium text-foreground">
-                    Select Batch
-                  </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsBatchModalOpen(true)}
-                  >
-                    Create Batch
-                  </Button>
-                </div>
+                <label className="text-sm font-medium text-foreground">
+                  Select Batch
+                </label>
                 <select
                   value={newMeeting.batch}
                   onChange={(e) =>
@@ -226,15 +181,15 @@ export default function MentorMeetingsPage() {
                   <option value="">
                     {batches.length === 0 ? "No batches available" : "Select batch"}
                   </option>
-                  {batches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
+                  {batches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.name}
                     </option>
                   ))}
                 </select>
                 {batches.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No batches found yet. Create one and it will be saved to Supabase.
+                    No batches found yet. Please create a batch from the students page first.
                   </p>
                 )}
               </div>
@@ -279,13 +234,6 @@ export default function MentorMeetingsPage() {
         </Dialog>
       </div>
 
-      <CreateBatchModal
-        isOpen={isBatchModalOpen}
-        onClose={() => setIsBatchModalOpen(false)}
-        onCreate={handleCreateBatch}
-      />
-
-      {/* MEETINGS */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Upcoming Meetings</h2>
 
@@ -296,7 +244,7 @@ export default function MentorMeetingsPage() {
         ) : batches.length === 0 ? (
           <Card className="p-4">
             <p className="text-muted-foreground">
-              No batches found for this mentor. Create or assign a batch first.
+              No batches found for this mentor. Please create a batch from the students page first.
             </p>
           </Card>
         ) : upcomingMeetings.length === 0 ? (
@@ -304,14 +252,14 @@ export default function MentorMeetingsPage() {
             <p className="text-muted-foreground">No upcoming meetings.</p>
           </Card>
         ) : (
-          upcomingMeetings.map((m) => (
-            <Card key={m.id} className="p-4">
+          upcomingMeetings.map((meeting) => (
+            <Card key={meeting.id} className="p-4">
               <div className="space-y-1">
-                <p className="font-bold">{m.batch}</p>
+                <p className="font-bold">{meeting.batch}</p>
                 <p>
-                  {m.date} - {m.time}
+                  {meeting.date} - {meeting.time}
                 </p>
-                <p className="text-sm text-muted-foreground">{m.description}</p>
+                <p className="text-sm text-muted-foreground">{meeting.description}</p>
               </div>
             </Card>
           ))
@@ -326,14 +274,14 @@ export default function MentorMeetingsPage() {
             <p className="text-muted-foreground">No past meetings yet.</p>
           </Card>
         ) : (
-          pastMeetings.map((m) => (
-            <Card key={m.id} className="p-4">
+          pastMeetings.map((meeting) => (
+            <Card key={meeting.id} className="p-4">
               <div className="space-y-1">
-                <p className="font-bold">{m.batch}</p>
+                <p className="font-bold">{meeting.batch}</p>
                 <p>
-                  {m.date} - {m.time}
+                  {meeting.date} - {meeting.time}
                 </p>
-                <p className="text-sm text-muted-foreground">{m.description}</p>
+                <p className="text-sm text-muted-foreground">{meeting.description}</p>
               </div>
             </Card>
           ))

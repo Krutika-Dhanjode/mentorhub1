@@ -28,8 +28,10 @@ export default function DashboardLayout({
       title = 'My Students'
     } else if (pathname.includes('/meetings')) {
       title = 'Meetings'
+    } else if (pathname.includes('/guidance')) {
+      title = 'Guidance'
     } else if (pathname.includes('/settings')) {
-      title = 'Settings'
+      title = 'Profile'
     } else {
       title = 'Mentor Dashboard'
     }
@@ -39,10 +41,12 @@ export default function DashboardLayout({
       title = 'My Batches'
     } else if (pathname.includes('/meetings')) {
       title = 'My Meetings'
+    } else if (pathname.includes('/guidance')) {
+      title = 'Guidance'
     } else if (pathname.includes('/progress')) {
-      title = 'Add Progress'
+      title = 'Progress'
     } else if (pathname.includes('/settings')) {
-      title = 'Settings'
+      title = 'Profile'
     } else {
       title = 'Student Dashboard'
     }
@@ -53,7 +57,7 @@ export default function DashboardLayout({
     } else if (pathname.includes('/meetings')) {
       title = 'Meetings'
     } else if (pathname.includes('/settings')) {
-      title = 'Settings'
+      title = 'Profile'
     } else {
       title = 'HOD Dashboard'
     }

@@ -199,12 +199,24 @@ export default function MentorDashboard() {
     if (!user) return;
 
     const confirmed = window.confirm(
-      `Delete batch "${batch.name}"? This will also remove all student assignments from this batch.`,
+      `Delete batch "${batch.name}"? This will also remove all meetings and student assignments from this batch.`,
     );
 
     if (!confirmed) return;
 
     setDeletingBatchId(batch.id);
+
+    const { error: meetingError } = await supabase
+      .from("meetings")
+      .delete()
+      .eq("batch_id", batch.id)
+      .eq("mentor_id", user.id);
+
+    if (meetingError) {
+      setDeletingBatchId(null);
+      alert("Unable to delete batch meetings: " + meetingError.message);
+      return;
+    }
 
     const { error } = await supabase
       .from("batches")
@@ -323,7 +335,7 @@ export default function MentorDashboard() {
 
           <div className="space-y-1">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Mentor Hub
+              Mentor Mentee Hub
             </p>
             <h2 className="text-3xl font-bold">Mentor Dashboard</h2>
           </div>
@@ -343,7 +355,7 @@ export default function MentorDashboard() {
         <div className="mb-3 flex items-center justify-between gap-4">
           <h3 className="text-lg font-semibold">My Batches</h3>
           <p className="text-sm text-muted-foreground">
-            Delete a batch to remove its student assignments from Supabase.
+            Delete a batch to remove its student assignments.
           </p>
         </div>
 

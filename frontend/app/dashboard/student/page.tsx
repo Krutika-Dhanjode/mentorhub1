@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useUser } from '@/hooks/use-user'
 import { createClient } from '@/lib/supabase/client'
 
@@ -285,10 +285,10 @@ export default function StudentDashboard() {
         <h3 className="text-lg font-semibold text-foreground mb-4">CGPA Progress</h3>
         <div className="w-full h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={cgpaData}>
+            <BarChart data={cgpaData} margin={{ left: 16, right: 16, top: 16, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis stroke="var(--color-muted-foreground)" />
-              <YAxis stroke="var(--color-muted-foreground)" domain={[7, 10]} />
+              <XAxis dataKey="semester" stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--color-muted-foreground)" domain={[7, 10]} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'var(--color-card)',
@@ -296,15 +296,12 @@ export default function StudentDashboard() {
                   borderRadius: '8px',
                 }}
               />
-              <Line
-                type="monotone"
+              <Bar
                 dataKey="cgpa"
-                stroke="var(--color-primary)"
-                strokeWidth={2}
-                dot={{ fill: 'var(--color-primary)', r: 4 }}
-                activeDot={{ r: 6 }}
+                fill="var(--color-primary)"
+                radius={[8, 8, 0, 0]}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </Card>

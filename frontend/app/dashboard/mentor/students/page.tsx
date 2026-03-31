@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Users, UserPlus, FolderPlus, ChevronRight } from 'lucide-react'
+import { Plus, Search, Users, UserPlus, FolderPlus, ChevronRight, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -61,6 +61,7 @@ export default function MentorStudentsPage() {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null)
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false)
   const [isCreateBatchOpen, setIsCreateBatchOpen] = useState(false)
+  const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null)
   
   // New student form
   const [newStudent, setNewStudent] = useState({
@@ -75,76 +76,84 @@ export default function MentorStudentsPage() {
     className: '',
   })
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const { data: batchData, error: batchError } = await supabase
-        .from('batches')
-        .select('id, name')
-        .order('name', { ascending: true })
+  const fetchData = async () => {
+    if (!user) return
 
-      if (batchError) {
-        console.error('Error fetching batches:', batchError.message)
-        return
-      }
+    const { data: batchData, error: batchError } = await supabase
+      .from('batches')
+      .select('id, name')
+      .eq('mentor_id', user.id)
+      .order('name', { ascending: true })
 
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('batch_students')
-        .select('id, batch_id, student_id, student_name')
-
-      if (assignmentError) {
-        console.error('Error fetching batch assignments:', assignmentError.message)
-        return
-      }
-
-      const studentIds = Array.from(
-        new Set((assignmentData || []).map((assignment: any) => assignment.student_id).filter(Boolean))
-      )
-
-      let usersById = new Map<string, any>()
-
-      if (studentIds.length > 0) {
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, name, email, role')
-          .in('id', studentIds)
-
-        if (userError) {
-          console.error('Error fetching users:', userError.message)
-          return
-        }
-
-        usersById = new Map((userData || []).map((entry: any) => [entry.id, entry]))
-      }
-
-      const formattedBatches: Batch[] = (batchData || []).map((batch: any) => ({
-        id: batch.id,
-        name: batch.name,
-        className: 'Batch',
-        studentCount: (assignmentData || []).filter((assignment: any) => assignment.batch_id === batch.id).length,
-      }))
-
-      setBatches(formattedBatches)
-
-      const batchNameById = new Map((batchData || []).map((batch: any) => [batch.id, batch.name]))
-
-      const formattedStudents: Student[] = (assignmentData || []).map((assignment: any, index: number) => {
-        const matchedUser = usersById.get(assignment.student_id)
-
-        return {
-          id: assignment.id || `${assignment.student_id}-${assignment.batch_id}`,
-          userId: assignment.student_id,
-          name: matchedUser?.name || assignment.student_name || 'Unknown',
-          prn: `CS${String(index + 1).padStart(3, '0')}`,
-          email: matchedUser?.email || '',
-          batch: batchNameById.get(assignment.batch_id) || 'Unknown Batch',
-          cgpa: 0,
-          status: 'Good Standing',
-        }
-      })
-
-      setStudents(formattedStudents)
+    if (batchError) {
+      console.error('Error fetching batches:', batchError.message)
+      return
     }
 
+    const batchIds = (batchData || []).map((batch: any) => batch.id)
+
+    const { data: assignmentData, error: assignmentError } = batchIds.length > 0
+      ? await supabase
+          .from('batch_students')
+          .select('id, batch_id, student_id, student_name')
+          .in('batch_id', batchIds)
+      : { data: [], error: null }
+
+    if (assignmentError) {
+      console.error('Error fetching batch assignments:', assignmentError.message)
+      return
+    }
+
+    const studentIds = Array.from(
+      new Set((assignmentData || []).map((assignment: any) => assignment.student_id).filter(Boolean))
+    )
+
+    let usersById = new Map<string, any>()
+
+    if (studentIds.length > 0) {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, name, email, role')
+        .in('id', studentIds)
+
+      if (userError) {
+        console.error('Error fetching users:', userError.message)
+        return
+      }
+
+      usersById = new Map((userData || []).map((entry: any) => [entry.id, entry]))
+    }
+
+    const formattedBatches: Batch[] = (batchData || []).map((batch: any) => ({
+      id: batch.id,
+      name: batch.name,
+      className: 'Batch',
+      studentCount: (assignmentData || []).filter((assignment: any) => assignment.batch_id === batch.id).length,
+    }))
+
+    setBatches(formattedBatches)
+
+    const batchNameById = new Map((batchData || []).map((batch: any) => [batch.id, batch.name]))
+
+    const formattedStudents: Student[] = (assignmentData || []).map((assignment: any, index: number) => {
+      const matchedUser = usersById.get(assignment.student_id)
+
+      return {
+        id: assignment.id || `${assignment.student_id}-${assignment.batch_id}`,
+        userId: assignment.student_id,
+        name: matchedUser?.name || assignment.student_name || 'Unknown',
+        prn: `CS${String(index + 1).padStart(3, '0')}`,
+        email: matchedUser?.email || '',
+        batch: batchNameById.get(assignment.batch_id) || 'Unknown Batch',
+        cgpa: 0,
+        status: 'Good Standing',
+      }
+    })
+
+    setStudents(formattedStudents)
+  }
+
+  useEffect(() => {
     if (!loading && user) fetchData()
   }, [loading, user])
 
@@ -212,6 +221,7 @@ export default function MentorStudentsPage() {
 
     const student: Student = {
       id: `${existingUser.id}-${selectedBatch.id}`,
+      userId: existingUser.id,
       name: existingUser.name || newStudent.name,
       prn: `CS${String(students.length + 1).padStart(3, '0')}`,
       email: existingUser.email || newStudent.email,
@@ -265,6 +275,50 @@ export default function MentorStudentsPage() {
     setNewBatch({ name: '', className: '' })
     setIsCreateBatchOpen(false)
     alert('Batch created successfully!')
+  }
+
+  const handleDeleteBatch = async (batch: Batch) => {
+    if (!user) return
+
+    const confirmed = window.confirm(
+      `Delete batch "${batch.name}"? This will also remove its meetings and student assignments.`
+    )
+
+    if (!confirmed) return
+
+    setDeletingBatchId(batch.id)
+
+    const { error: meetingError } = await supabase
+      .from('meetings')
+      .delete()
+      .eq('batch_id', batch.id)
+      .eq('mentor_id', user.id)
+
+    if (meetingError) {
+      setDeletingBatchId(null)
+      alert('Error deleting batch meetings: ' + meetingError.message)
+      return
+    }
+
+    const { error } = await supabase
+      .from('batches')
+      .delete()
+      .eq('id', batch.id)
+      .eq('mentor_id', user.id)
+
+    setDeletingBatchId(null)
+
+    if (error) {
+      alert('Error deleting batch: ' + error.message)
+      return
+    }
+
+    if (selectedBatch === batch.name) {
+      setSelectedBatch(null)
+    }
+
+    await fetchData()
+    alert('Batch deleted successfully!')
   }
 
   const getStatusColor = (status: Student['status']) => {
@@ -410,13 +464,27 @@ export default function MentorStudentsPage() {
             className={`p-4 border-border cursor-pointer transition-all hover:shadow-md ${selectedBatch === batch.name ? 'ring-2 ring-primary' : ''}`}
             onClick={() => setSelectedBatch(batch.name)}
           >
-            <div className="flex items-center gap-3">
-              <Users className="w-8 h-8 text-accent" />
-              <div>
-                <p className="font-semibold text-foreground">{batch.name}</p>
-                <p className="text-xs text-muted-foreground">{batch.className}</p>
-                <p className="text-sm text-muted-foreground">{batch.studentCount} students</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Users className="w-8 h-8 text-accent" />
+                <div>
+                  <p className="font-semibold text-foreground">{batch.name}</p>
+                  <p className="text-xs text-muted-foreground">{batch.className}</p>
+                  <p className="text-sm text-muted-foreground">{batch.studentCount} students</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-destructive hover:text-destructive"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  handleDeleteBatch(batch)
+                }}
+                disabled={deletingBatchId === batch.id}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           </Card>
         ))}
