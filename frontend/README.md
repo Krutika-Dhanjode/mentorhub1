@@ -1,35 +1,39 @@
-# v0-mentor-hub-logo
+# 🚀 Mentor–Mentee Hub
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+A full-stack mentorship platform designed to streamline interaction between mentors and students, enabling efficient tracking, scheduling, and management of mentorship activities.
 
-## Built with v0
+---
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## 📌 Features
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_tAzCD82dj1v0gZCA45o0TpexuVlA)
+* 🔐 Secure authentication with role-based access (Mentor & Mentee)
+* 📊 Dynamic dashboards for tracking student progress
+* 📅 Session scheduling and batch management
+* ⚡ Real-time data handling using Supabase
+* 📱 Responsive and user-friendly interface
 
-## Getting Started
+---
 
-First, run the development server:
+## 🛠️ Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-```
+* **Frontend:** Next.js, React.js, Tailwind CSS
+* **Backend & Database:** Supabase (PostgreSQL)
+* **APIs:** RESTful APIs
+* **Other Tools:** Git, Vercel
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🌐 Live Demo
 
-## Learn More
+👉 [[Live Website](#)](https://mentormenteehub.vercel.app/)
 
-To learn more, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+## 🎯 Key Highlights
 
-<a href="https://v0.app/chat/api/kiro/clone/Krutika-Dhanjode/v0-mentor-hub-logo" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+* Engineered a scalable mentorship platform for structured mentor–student interaction
+* Implemented secure authentication and role-based access control
+* Developed dynamic dashboards for tracking, scheduling, and management
+* Designed efficient database schema and optimized frontend performance
+
+---
