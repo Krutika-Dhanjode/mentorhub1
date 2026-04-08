@@ -69,7 +69,7 @@ CREATE POLICY "Mentors can view queries from their students" ON public.queries
     )
   );
 
-CREATE POLICY "HOD can view all queries" ON public.queries
+CREATE POLICY "Admin can view all queries" ON public.queries
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'hod')
   );

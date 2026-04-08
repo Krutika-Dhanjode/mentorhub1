@@ -10,9 +10,9 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'users'
-      AND policyname = 'HOD can view mentors they added'
+      AND policyname = 'Admin can view mentors they added'
   ) THEN
-    CREATE POLICY "HOD can view mentors they added"
+    CREATE POLICY "Admin can view mentors they added"
       ON public.users
       FOR SELECT
       TO authenticated
@@ -27,9 +27,9 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'users'
-      AND policyname = 'HOD can insert mentors'
+      AND policyname = 'Admin can insert mentors'
   ) THEN
-    CREATE POLICY "HOD can insert mentors"
+    CREATE POLICY "Admin can insert mentors"
       ON public.users
       FOR INSERT
       TO authenticated
@@ -44,9 +44,9 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'users'
-      AND policyname = 'HOD can update mentors they added'
+      AND policyname = 'Admin can update mentors they added'
   ) THEN
-    CREATE POLICY "HOD can update mentors they added"
+    CREATE POLICY "Admin can update mentors they added"
       ON public.users
       FOR UPDATE
       TO authenticated

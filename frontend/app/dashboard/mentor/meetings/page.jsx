@@ -1,0 +1,296 @@
+"use client";
+import { useEffect, useState } from "react";
+import { Plus, Pencil, Ban } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
+import { createClient } from "@/lib/supabase/client";
+export default function MentorMeetingsPage() {
+    const supabase = createClient();
+    const [meetings, setMeetings] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingMeetingId, setEditingMeetingId] = useState(null);
+    const [savingMeeting, setSavingMeeting] = useState(false);
+    const [cancellingMeetingId, setCancellingMeetingId] = useState(null);
+    const [newMeeting, setNewMeeting] = useState({
+        title: "",
+        batch: "",
+        date: "",
+        time: "",
+        venue: "",
+        agenda: "",
+    });
+    useEffect(() => {
+        const getUser = async () => {
+            const { data } = await supabase.auth.getUser();
+            setUser(data.user);
+        };
+        getUser();
+    }, []);
+    const fetchMeetings = async (currentBatches = batches) => {
+        if (!user)
+            return;
+        setLoading(true);
+        const { data } = await supabase
+            .from("meetings")
+            .select("*")
+            .eq("mentor_id", user.id)
+            .order("scheduled_at", { ascending: true });
+        const formatted = (data || []).map((meeting) => ({
+            id: meeting.id,
+            batchId: meeting.batch_id ?? null,
+            batch: meeting.batch ||
+                currentBatches.find((batch) => batch.id === meeting.batch_id)?.name ||
+                "Unassigned Batch",
+            title: meeting.title || "Mentorship Meeting",
+            scheduledAt: meeting.scheduled_at,
+            date: new Date(meeting.scheduled_at).toLocaleDateString(),
+            time: new Date(meeting.scheduled_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+            description: meeting.description || "No description",
+            status: meeting.status || "Scheduled",
+        }));
+        setMeetings(formatted);
+        setLoading(false);
+    };
+    const fetchBatches = async () => {
+        if (!user)
+            return;
+        const { data, error } = await supabase
+            .from("batches")
+            .select("id, name")
+            .eq("mentor_id", user.id)
+            .order("name", { ascending: true });
+        if (error) {
+            alert("Unable to load batches: " + error.message);
+            return;
+        }
+        const loadedBatches = (data || []);
+        setBatches(loadedBatches);
+        await fetchMeetings(loadedBatches);
+    };
+    useEffect(() => {
+        if (user) {
+            fetchBatches();
+        }
+    }, [user]);
+    const resetMeetingForm = () => {
+        setNewMeeting({ title: "", batch: "", date: "", time: "", venue: "", agenda: "" });
+        setEditingMeetingId(null);
+    };
+    const handleScheduleMeeting = async () => {
+        if (!newMeeting.title || !newMeeting.batch || !newMeeting.date || !newMeeting.time || !newMeeting.venue)
+            return;
+        if (!user)
+            return;
+        setSavingMeeting(true);
+        const datetime = new Date(`${newMeeting.date} ${newMeeting.time}`);
+        const selectedBatch = batches.find((batch) => batch.id === newMeeting.batch);
+        const description = newMeeting.agenda
+            ? `${newMeeting.venue} - ${newMeeting.agenda}`
+            : newMeeting.venue;
+        const payload = {
+            title: newMeeting.title.trim(),
+            description,
+            mentor_id: user.id,
+            batch_id: newMeeting.batch,
+            batch: selectedBatch?.name || "",
+            scheduled_at: datetime,
+        };
+        const { error } = editingMeetingId
+            ? await supabase
+                .from("meetings")
+                .update(payload)
+                .eq("id", editingMeetingId)
+                .eq("mentor_id", user.id)
+            : await supabase.from("meetings").insert(payload);
+        setSavingMeeting(false);
+        if (!error) {
+            alert(editingMeetingId ? "Meeting updated successfully." : "Meeting saved successfully.");
+            await fetchMeetings();
+        }
+        else {
+            alert("Unable to save meeting: " + error.message);
+        }
+        resetMeetingForm();
+        setIsDialogOpen(false);
+    };
+    const handleEditMeeting = (meeting) => {
+        const [venue, ...agendaParts] = (meeting.description || "").split(" - ");
+        const scheduledDate = new Date(meeting.scheduledAt);
+        const dateValue = Number.isNaN(scheduledDate.getTime())
+            ? ""
+            : scheduledDate.toISOString().split("T")[0];
+        const timeValue = Number.isNaN(scheduledDate.getTime())
+            ? ""
+            : `${String(scheduledDate.getHours()).padStart(2, "0")}:${String(scheduledDate.getMinutes()).padStart(2, "0")}`;
+        setEditingMeetingId(meeting.id);
+        setNewMeeting({
+            title: meeting.title || "Mentorship Meeting",
+            batch: meeting.batchId || "",
+            date: dateValue,
+            time: timeValue,
+            venue: venue || "",
+            agenda: agendaParts.join(" - "),
+        });
+        setIsDialogOpen(true);
+    };
+    const handleCancelMeeting = async (meeting) => {
+        if (!user)
+            return;
+        const confirmed = window.confirm(`Cancel meeting "${meeting.title}" scheduled on ${meeting.date} at ${meeting.time}?`);
+        if (!confirmed)
+            return;
+        setCancellingMeetingId(meeting.id);
+        const { error } = await supabase
+            .from("meetings")
+            .update({ status: "Cancelled" })
+            .eq("id", meeting.id)
+            .eq("mentor_id", user.id);
+        setCancellingMeetingId(null);
+        if (error) {
+            alert("Unable to cancel meeting: " + error.message);
+            return;
+        }
+        await fetchMeetings();
+        alert("Meeting cancelled.");
+    };
+    const upcomingMeetings = meetings.filter((meeting) => {
+        const scheduledDate = new Date(meeting.scheduledAt);
+        return !Number.isNaN(scheduledDate.getTime()) && scheduledDate >= new Date();
+    });
+    const pastMeetings = meetings.filter((meeting) => {
+        const scheduledDate = new Date(meeting.scheduledAt);
+        return !Number.isNaN(scheduledDate.getTime()) && scheduledDate < new Date();
+    });
+    return (<div className="space-y-8">
+      <div className="flex justify-between">
+        <h1 className="text-3xl font-bold">Meetings</h1>
+
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+                resetMeetingForm();
+            }
+        }}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4"/>
+              Schedule Meeting
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Schedule Meeting</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Meeting Title
+                </label>
+                <Input placeholder="e.g., Academic Review" value={newMeeting.title} onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}/>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Select Batch
+                </label>
+                <select value={newMeeting.batch} onChange={(e) => setNewMeeting({ ...newMeeting, batch: e.target.value })} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                  <option value="">
+                    {batches.length === 0 ? "No batches available" : "Select batch"}
+                  </option>
+                  {batches.map((batch) => (<option key={batch.id} value={batch.id}>
+                      {batch.name}
+                    </option>))}
+                </select>
+                {batches.length === 0 && (<p className="text-xs text-muted-foreground">
+                    No batches found yet. Please create a batch from the students page first.
+                  </p>)}
+              </div>
+
+              <Input type="date" value={newMeeting.date} onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })}/>
+
+              <Input type="time" value={newMeeting.time} onChange={(e) => setNewMeeting({ ...newMeeting, time: e.target.value })}/>
+
+              <Input placeholder="Venue" value={newMeeting.venue} onChange={(e) => setNewMeeting({ ...newMeeting, venue: e.target.value })}/>
+
+              <Textarea placeholder="Agenda" value={newMeeting.agenda} onChange={(e) => setNewMeeting({ ...newMeeting, agenda: e.target.value })}/>
+
+              <Button onClick={handleScheduleMeeting}>
+                {savingMeeting
+            ? "Saving..."
+            : editingMeetingId
+                ? "Update Meeting"
+                : "Save Meeting"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Upcoming Meetings</h2>
+
+        {loading ? (<Card className="p-4">
+            <p>Loading meetings...</p>
+          </Card>) : batches.length === 0 ? (<Card className="p-4">
+            <p className="text-muted-foreground">
+              No batches found for this mentor. Please create a batch from the students page first.
+            </p>
+          </Card>) : upcomingMeetings.length === 0 ? (<Card className="p-4">
+            <p className="text-muted-foreground">No upcoming meetings.</p>
+          </Card>) : (upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="p-4">
+              <div className="space-y-2">
+                <p className="font-bold">{meeting.title}</p>
+                <p className="text-sm text-muted-foreground">{meeting.batch}</p>
+                <p>
+                  {meeting.date} - {meeting.time}
+                </p>
+                <p className="text-sm text-muted-foreground">{meeting.description}</p>
+                <p className="text-xs text-muted-foreground">Status: {meeting.status}</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => handleEditMeeting(meeting)}>
+                    <Pencil className="w-4 h-4"/>
+                    Edit
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-destructive" onClick={() => handleCancelMeeting(meeting)} disabled={meeting.status === "Cancelled" || cancellingMeetingId === meeting.id}>
+                    <Ban className="w-4 h-4"/>
+                    {meeting.status === "Cancelled"
+                ? "Cancelled"
+                : cancellingMeetingId === meeting.id
+                    ? "Cancelling..."
+                    : "Cancel"}
+                  </Button>
+                </div>
+              </div>
+            </Card>)))}
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Past Meetings</h2>
+
+        {pastMeetings.length === 0 ? (<Card className="p-4">
+            <p className="text-muted-foreground">No past meetings yet.</p>
+          </Card>) : (pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-4">
+              <div className="space-y-1">
+                <p className="font-bold">{meeting.title}</p>
+                <p className="text-sm text-muted-foreground">{meeting.batch}</p>
+                <p>
+                  {meeting.date} - {meeting.time}
+                </p>
+                <p className="text-sm text-muted-foreground">{meeting.description}</p>
+                <p className="text-xs text-muted-foreground">Status: {meeting.status}</p>
+              </div>
+            </Card>)))}
+      </div>
+    </div>);
+}

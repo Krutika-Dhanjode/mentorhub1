@@ -15,9 +15,9 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'mentors'
-      AND policyname = 'HOD can view their mentor mappings'
+      AND policyname = 'Admin can view their mentor mappings'
   ) THEN
-    CREATE POLICY "HOD can view their mentor mappings"
+    CREATE POLICY "Admin can view their mentor mappings"
       ON public.mentors
       FOR SELECT
       TO authenticated
@@ -29,9 +29,9 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'mentors'
-      AND policyname = 'HOD can insert mentor mappings'
+      AND policyname = 'Admin can insert mentor mappings'
   ) THEN
-    CREATE POLICY "HOD can insert mentor mappings"
+    CREATE POLICY "Admin can insert mentor mappings"
       ON public.mentors
       FOR INSERT
       TO authenticated
@@ -43,9 +43,9 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'mentors'
-      AND policyname = 'HOD can delete mentor mappings'
+      AND policyname = 'Admin can delete mentor mappings'
   ) THEN
-    CREATE POLICY "HOD can delete mentor mappings"
+    CREATE POLICY "Admin can delete mentor mappings"
       ON public.mentors
       FOR DELETE
       TO authenticated
