@@ -3,9 +3,18 @@ import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 const isIgnorableSchemaError = (error) => {
-    if (!error?.code)
-        return false;
-    return error.code === '42P01' || error.code === '42703';
+    const code = String(error?.code || '');
+    const message = String(error?.message || '').toLowerCase();
+    if (code === '42P01' || code === '42703' || code === 'PGRST205') {
+        return true;
+    }
+    if (message.includes('schema cache') ||
+        message.includes('could not find the table') ||
+        message.includes('could not find the relation') ||
+        message.includes('column') && message.includes('not found')) {
+        return true;
+    }
+    return false;
 };
 async function deleteWhereEquals(admin, table, column, value) {
     const { error } = await admin.from(table).delete().eq(column, value);
