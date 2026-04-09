@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, BarChart3 } from 'lucide-react';
@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
-export default function MentorStudentsPage() {
+function MentorStudentsPageContent() {
     const { user, loading } = useUser();
     const supabase = createClient();
     const searchParams = useSearchParams();
@@ -764,4 +764,14 @@ export default function MentorStudentsPage() {
         </div>
       </Card>
     </div>);
+}
+
+export default function MentorStudentsPage() {
+    return (<Suspense fallback={<div className="space-y-6">
+        <Card className="border-border p-6">
+          <p className="text-sm text-muted-foreground">Loading students dashboard...</p>
+        </Card>
+      </div>}>
+      <MentorStudentsPageContent />
+    </Suspense>);
 }
