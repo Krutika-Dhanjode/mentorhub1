@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,10 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
-function MentorStudentsPageContent() {
+function MentorStudentsPageContent({ initialSearch = '' }) {
     const { user, loading } = useUser();
     const supabase = createClient();
-    const searchParams = useSearchParams();
     const [students, setStudents] = useState([]);
     const [batches, setBatches] = useState([]);
     const [selectedBatch, setSelectedBatch] = useState(null);
@@ -126,7 +124,7 @@ function MentorStudentsPageContent() {
             setComparisonBatchId(batches[0].id);
         }
     }, [batches, comparisonBatchId]);
-    const searchTerm = searchParams.get('q') || '';
+    const searchTerm = initialSearch || '';
     const filteredStudents = students.filter((s) => {
         const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.prn.toLowerCase().includes(searchTerm.toLowerCase()) ||

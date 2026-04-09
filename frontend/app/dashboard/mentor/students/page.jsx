@@ -4,7 +4,10 @@ import MentorStudentsContent from './MentorStudentsContent';
 
 export const dynamic = 'force-dynamic';
 
-export default function MentorStudentsPage() {
+export default function MentorStudentsPage({ searchParams }) {
+  const queryValue = searchParams?.q;
+  const initialSearch = Array.isArray(queryValue) ? queryValue[0] || '' : queryValue || '';
+
   return (
     <Suspense
       fallback={
@@ -15,7 +18,7 @@ export default function MentorStudentsPage() {
         </div>
       }
     >
-      <MentorStudentsContent />
+      <MentorStudentsContent initialSearch={initialSearch} />
     </Suspense>
   );
 }
