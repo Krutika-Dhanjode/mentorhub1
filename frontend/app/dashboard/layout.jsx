@@ -1,4 +1,5 @@
 'use client';
+import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppNavbar } from '@/components/app-navbar';
@@ -71,7 +72,9 @@ export default function DashboardLayout({ children, }) {
     return (<div className="flex h-screen bg-background">
       <AppSidebar userRole={userRole}/>
       <div className="flex-1 flex flex-col">
-        <AppNavbar title={title}/>
+        <Suspense fallback={<div className="sticky top-0 z-30 h-16 border-b border-border bg-card"/>}>
+          <AppNavbar title={title}/>
+        </Suspense>
         <main className="flex-1 overflow-auto">
           <div className="p-6">{children}</div>
         </main>
