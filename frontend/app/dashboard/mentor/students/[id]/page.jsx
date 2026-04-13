@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
+import { sendNotificationEmail } from "@/lib/send-notification-email";
 const escapePdfText = (value) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 const buildPdfBlob = (lines) => {
     const linesPerPage = 32;
@@ -56,6 +57,7 @@ export default function StudentReportPage({ params }) {
     const [savingScoreEntryId, setSavingScoreEntryId] = useState(null);
     const [mentorScoreDraft, setMentorScoreDraft] = useState("");
     const [savingMentorScore, setSavingMentorScore] = useState(false);
+    const [lastSentTime, setLastSentTime] = useState("");
     const [pageLoading, setPageLoading] = useState(true);
     // ✅ FETCH STUDENT
     useEffect(() => {
@@ -84,21 +86,39 @@ export default function StudentReportPage({ params }) {
             return;
         }
         setSavingMentorScore(true);
-        const { error } = await supabase
-            .from("users")
-            .update({ mentor_report_score: parsed })
-            .eq("id", id);
+        const response = await fetch("/api/update-mentor-score", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                studentEmail: student?.email || "",
+                score: parsed,
+            }),
+        });
+        const payload = await response.json().catch(() => ({}));
         setSavingMentorScore(false);
-        if (error) {
-            if (error.message?.includes("mentor_report_score")) {
+        if (!response.ok) {
+            const message = payload?.error || "Unable to save mentor score.";
+            if (String(message).includes("mentor_report_score")) {
                 alert("Unable to save mentor score: column mentor_report_score is missing. Please run the SQL migration first.");
                 return;
             }
-            alert("Unable to save mentor score: " + error.message);
+            alert("Unable to save mentor score: " + message);
             return;
         }
-        setStudent((current) => (current ? { ...current, mentor_report_score: parsed } : current));
-        alert("Mentor score saved.");
+        setStudent((current) => (current
+            ? {
+                ...current,
+                mentor_report_score: payload?.student?.mentor_report_score ?? parsed,
+            }
+            : current));
+        try {
+            const emailResponse = await sendNotificationEmail(student?.email || "", student?.name || "Student", "score", `Your mentor score has been updated to ${parsed == null ? "Not given" : `${parsed}/10`}.`);
+            setLastSentTime(emailResponse?.lastSentAt || new Date().toISOString());
+            alert("Mentor score saved and email sent.");
+        }
+        catch (emailError) {
+            alert(`Mentor score saved, but email failed: ${emailError.message}`);
+        }
     };
     // ✅ FETCH MEETINGS
     useEffect(() => {
@@ -151,19 +171,36 @@ export default function StudentReportPage({ params }) {
             alert("Please enter a valid score between 0 and 10.");
             return;
         }
+        const { data: studentByEmail, error: studentLookupError } = await supabase
+            .from("users")
+            .select("id, email, name")
+            .eq("email", student?.email || "")
+            .maybeSingle();
+        if (studentLookupError || !studentByEmail?.id) {
+            alert("Unable to find student by email for score update.");
+            return;
+        }
         setSavingScoreEntryId(entryId);
         const { error } = await supabase
             .from("progress")
             .update({ score: parsed })
             .eq("id", entryId)
-            .eq("student_id", id);
+            .eq("student_id", studentByEmail.id);
         setSavingScoreEntryId(null);
         if (error) {
             alert("Unable to save report score: " + error.message);
             return;
         }
         setProgress((current) => current.map((entry) => entry.id === entryId ? { ...entry, score: parsed } : entry));
-        alert("Report score saved.");
+        try {
+            const progressEntry = progress.find((entry) => entry.id === entryId);
+            const emailResponse = await sendNotificationEmail(student?.email || "", student?.name || "Student", "score", `Your report score has been updated for "${progressEntry?.title || "Report"}" to ${parsed == null ? "Not given" : `${parsed}/10`}.`);
+            setLastSentTime(emailResponse?.lastSentAt || new Date().toISOString());
+            alert("Report score saved and email sent.");
+        }
+        catch (emailError) {
+            alert(`Report score saved, but email failed: ${emailError.message}`);
+        }
     };
     const handleExport = () => {
         if (!student)
@@ -368,6 +405,9 @@ export default function StudentReportPage({ params }) {
               {savingMentorScore ? "Saving..." : "Save Score"}
             </Button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Last Sent Time: {lastSentTime ? new Date(lastSentTime).toLocaleString() : "Not sent yet"}
+          </p>
         </Card>
       </div>
 

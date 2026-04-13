@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
+import { sendNotificationEmail } from "@/lib/send-notification-email";
 export default function MentorMeetingsPage() {
     const supabase = createClient();
     const [meetings, setMeetings] = useState([]);
@@ -23,6 +24,7 @@ export default function MentorMeetingsPage() {
     const [attendanceByStudent, setAttendanceByStudent] = useState({});
     const [attendanceLoading, setAttendanceLoading] = useState(false);
     const [attendanceSaving, setAttendanceSaving] = useState(false);
+    const [lastSentTime, setLastSentTime] = useState("");
     const [newMeeting, setNewMeeting] = useState({
         title: "",
         batch: "",
@@ -99,6 +101,7 @@ export default function MentorMeetingsPage() {
         setSavingMeeting(true);
         const datetime = new Date(`${newMeeting.date} ${newMeeting.time}`);
         const selectedBatch = batches.find((batch) => batch.id === newMeeting.batch);
+        const [meetingVenue = "", ...agendaParts] = (newMeeting.venue || "").split(" - ");
         const description = newMeeting.agenda
             ? `${newMeeting.venue} - ${newMeeting.agenda}`
             : newMeeting.venue;
@@ -119,6 +122,41 @@ export default function MentorMeetingsPage() {
             : await supabase.from("meetings").insert(payload);
         setSavingMeeting(false);
         if (!error) {
+            const { data: assignments, error: assignmentError } = await supabase
+                .from("batch_students")
+                .select("student_id")
+                .eq("batch_id", newMeeting.batch);
+            if (!assignmentError) {
+                const studentIds = Array.from(new Set((assignments || []).map((entry) => entry.student_id).filter(Boolean)));
+                if (studentIds.length > 0) {
+                    const { data: usersData } = await supabase
+                        .from("users")
+                        .select("email, name")
+                        .in("id", studentIds);
+                    const students = (usersData || []).filter((row) => row.email);
+                    let failedEmails = 0;
+                    for (const student of students) {
+                        try {
+                            const meetingDetails = [
+                                `Meeting Title: ${payload.title}`,
+                                `Date & Time: ${datetime.toLocaleString()}`,
+                                `Batch: ${selectedBatch?.name || "N/A"}`,
+                                `Venue: ${meetingVenue || newMeeting.venue || "N/A"}`,
+                                `Agenda: ${newMeeting.agenda || agendaParts.join(" - ") || "N/A"}`,
+                            ].join("\n");
+                            const emailResult = await sendNotificationEmail(student.email, student.name || "Student", "meeting", meetingDetails);
+                            setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
+                        }
+                        catch (emailError) {
+                            failedEmails += 1;
+                            console.error("Unable to send meeting notification:", emailError.message);
+                        }
+                    }
+                    if (failedEmails > 0) {
+                        alert(`${failedEmails} meeting notification email(s) failed to send.`);
+                    }
+                }
+            }
             alert(editingMeetingId ? "Meeting updated successfully." : "Meeting saved successfully.");
             await fetchMeetings();
         }
@@ -260,8 +298,11 @@ export default function MentorMeetingsPage() {
         return !Number.isNaN(scheduledDate.getTime()) && scheduledDate < new Date();
     });
     return (<div className="space-y-8">
-      <div className="flex justify-between">
+      <div className="flex justify-between items-end gap-4">
         <h1 className="text-3xl font-bold">Meetings</h1>
+        <p className="text-xs text-muted-foreground">
+          Last Sent Time: {lastSentTime ? new Date(lastSentTime).toLocaleString() : "Not sent yet"}
+        </p>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);

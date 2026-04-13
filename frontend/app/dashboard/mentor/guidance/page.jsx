@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
 import { createClient } from "@/lib/supabase/client";
+import { sendNotificationEmail } from "@/lib/send-notification-email";
 export default function MentorGuidancePage() {
     const { user, loading } = useUser();
     const supabase = createClient();
@@ -16,6 +17,7 @@ export default function MentorGuidancePage() {
     const [draft, setDraft] = useState("");
     const [dataLoading, setDataLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [lastSentTime, setLastSentTime] = useState("");
     const selectedThread = useMemo(() => threads.find((thread) => thread.id === selectedStudentId) || null, [threads, selectedStudentId]);
     const fetchThreads = async () => {
         if (!user)
@@ -193,6 +195,13 @@ export default function MentorGuidancePage() {
             alert("Unable to send guidance reply: " + error.message);
             return;
         }
+        try {
+            const emailResult = await sendNotificationEmail(selectedThread?.email || "", selectedThread?.name || "Student", "guidance", draft.trim());
+            setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
+        }
+        catch (emailError) {
+            alert(`Guidance saved, but email failed: ${emailError.message}`);
+        }
         setDraft("");
         await fetchThreads();
         await fetchMessages(selectedStudentId);
@@ -207,6 +216,9 @@ export default function MentorGuidancePage() {
         <h1 className="text-3xl font-bold text-foreground">Guidance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           See student issues and respond with mentor guidance in real time.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Last Sent Time: {lastSentTime ? new Date(lastSentTime).toLocaleString() : "Not sent yet"}
         </p>
       </div>
 
