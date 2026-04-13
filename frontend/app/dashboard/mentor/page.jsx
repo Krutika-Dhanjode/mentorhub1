@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -313,12 +314,17 @@ export default function MentorDashboard() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => removeStudentFromBatch(student)} disabled={removingAssignmentId === student.assignmentId}>
-                      <Trash2 className="mr-2 h-4 w-4"/>
-                      {removingAssignmentId === student.assignmentId
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" className="mr-1" onClick={() => removeStudentFromBatch(student)} disabled={removingAssignmentId === student.assignmentId}>
+                        <Trash2 className="mr-2 h-4 w-4"/>
+                        {removingAssignmentId === student.assignmentId
                     ? "Removing..."
                     : "Remove"}
-                    </Button>
+                      </Button>
+                      <Link href={`/dashboard/mentor/students/${student.id}`}>
+                        <Button variant="ghost" size="sm">View Report</Button>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>))}
             </TableBody>

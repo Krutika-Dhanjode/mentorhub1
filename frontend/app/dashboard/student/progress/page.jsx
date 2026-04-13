@@ -18,6 +18,7 @@ export default function StudentProgressPage() {
     const { user, loading } = useUser();
     const supabase = createClient();
     const [progress, setProgress] = useState([]);
+    const [mentorScore, setMentorScore] = useState(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
@@ -32,6 +33,12 @@ export default function StudentProgressPage() {
         if (!user)
             return;
         setDataLoading(true);
+        const { data: studentProfile } = await supabase
+            .from('users')
+            .select('mentor_report_score')
+            .eq('id', user.id)
+            .maybeSingle();
+        setMentorScore(studentProfile?.mentor_report_score ?? null);
         const { data, error } = await supabase
             .from('progress')
             .select('id, entry_type, title, description, score, value_text, attachments, attachment_names, created_at, date')
@@ -270,6 +277,15 @@ export default function StudentProgressPage() {
         </Card>
       </div>
 
+      <Card className="border-border bg-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-muted-foreground">Mentor Score (Out of 10)</p>
+          <Badge className="bg-accent/20 text-accent">
+            {mentorScore == null ? 'Not given yet' : `${mentorScore}/10`}
+          </Badge>
+        </div>
+      </Card>
+
       <Card className="border-border bg-card p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -351,6 +367,7 @@ export default function StudentProgressPage() {
                       <div className="space-y-2">
                         <p>{entry.title}</p>
                         {entry.valueText && (<Badge className="bg-primary/20 text-primary">{entry.valueText}</Badge>)}
+                        {entry.entryType === 'report' && entry.numericValue != null && (<Badge className="bg-accent/20 text-accent">Score: {entry.numericValue}</Badge>)}
                       </div>
                     </TableCell>
                     <TableCell className="max-w-md text-muted-foreground">{entry.description}</TableCell>

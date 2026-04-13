@@ -52,6 +52,10 @@ export default function StudentReportPage({ params }) {
     const [student, setStudent] = useState(null);
     const [meetings, setMeetings] = useState([]);
     const [progress, setProgress] = useState([]);
+    const [scoreDraftByEntryId, setScoreDraftByEntryId] = useState({});
+    const [savingScoreEntryId, setSavingScoreEntryId] = useState(null);
+    const [mentorScoreDraft, setMentorScoreDraft] = useState("");
+    const [savingMentorScore, setSavingMentorScore] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     // ✅ FETCH STUDENT
     useEffect(() => {
@@ -68,17 +72,62 @@ export default function StudentReportPage({ params }) {
                 return;
             }
             setStudent(data);
+            setMentorScoreDraft(data?.mentor_report_score != null ? String(data.mentor_report_score) : "");
             setPageLoading(false);
         };
         fetchStudent();
     }, [id]);
+    const handleSaveMentorScore = async () => {
+        const parsed = mentorScoreDraft === "" ? null : Number(mentorScoreDraft);
+        if (mentorScoreDraft !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
+            alert("Please enter a valid mentor score between 0 and 10.");
+            return;
+        }
+        setSavingMentorScore(true);
+        const { error } = await supabase
+            .from("users")
+            .update({ mentor_report_score: parsed })
+            .eq("id", id);
+        setSavingMentorScore(false);
+        if (error) {
+            if (error.message?.includes("mentor_report_score")) {
+                alert("Unable to save mentor score: column mentor_report_score is missing. Please run the SQL migration first.");
+                return;
+            }
+            alert("Unable to save mentor score: " + error.message);
+            return;
+        }
+        setStudent((current) => (current ? { ...current, mentor_report_score: parsed } : current));
+        alert("Mentor score saved.");
+    };
     // ✅ FETCH MEETINGS
     useEffect(() => {
         const fetchMeetings = async () => {
-            const { data } = await supabase
+            const { data: batchAssignments, error: assignmentError } = await supabase
+                .from("batch_students")
+                .select("batch_id")
+                .eq("student_id", id);
+            if (assignmentError) {
+                console.error("Error fetching student batch assignments:", assignmentError.message);
+                setMeetings([]);
+                return;
+            }
+            const batchIds = Array.from(new Set((batchAssignments || []).map((entry) => entry.batch_id).filter(Boolean)));
+            if (batchIds.length === 0) {
+                setMeetings([]);
+                return;
+            }
+            const { data, error } = await supabase
                 .from("meetings")
                 .select("*")
-                .eq("student_id", id);
+                .in("batch_id", batchIds)
+                .eq("status", "Scheduled")
+                .order("scheduled_at", { ascending: true });
+            if (error) {
+                console.error("Error fetching batch meetings:", error.message);
+                setMeetings([]);
+                return;
+            }
             setMeetings(data || []);
         };
         fetchMeetings();
@@ -91,9 +140,31 @@ export default function StudentReportPage({ params }) {
                 .select("*")
                 .eq("student_id", id);
             setProgress(data || []);
+            setScoreDraftByEntryId(Object.fromEntries((data || []).map((entry) => [entry.id, entry.score != null ? String(entry.score) : ""])));
         };
         fetchProgress();
     }, [id]);
+    const handleReportScoreSave = async (entryId) => {
+        const rawValue = scoreDraftByEntryId[entryId];
+        const parsed = rawValue === "" ? null : Number(rawValue);
+        if (rawValue !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
+            alert("Please enter a valid score between 0 and 10.");
+            return;
+        }
+        setSavingScoreEntryId(entryId);
+        const { error } = await supabase
+            .from("progress")
+            .update({ score: parsed })
+            .eq("id", entryId)
+            .eq("student_id", id);
+        setSavingScoreEntryId(null);
+        if (error) {
+            alert("Unable to save report score: " + error.message);
+            return;
+        }
+        setProgress((current) => current.map((entry) => entry.id === entryId ? { ...entry, score: parsed } : entry));
+        alert("Report score saved.");
+    };
     const handleExport = () => {
         if (!student)
             return;
@@ -104,6 +175,7 @@ export default function StudentReportPage({ params }) {
             `PRN: ${student.prn || "N/A"}`,
             `Email: ${student.email || "N/A"}`,
             `CGPA: ${student.cgpa || 0}`,
+            `Mentor Score (Out of 10): ${student.mentor_report_score ?? "N/A"}`,
             `Meetings Count: ${meetings.length}`,
             `Progress Entries: ${progress.length}`,
             "",
@@ -281,21 +353,27 @@ export default function StudentReportPage({ params }) {
       </Card>
 
       {/* STATS */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card className="p-4">
-          <p>CGPA</p>
-          <h3>{student.cgpa || 0}</h3>
+          <p>Scheduled Meetings (Student Batch)</p>
+          <h3>{meetings.length}</h3>
         </Card>
 
         <Card className="p-4">
-          <p>Meetings</p>
-          <h3>{meetings.length}</h3>
+          <p>Mentor Score (Out of 10)</p>
+          <h3>{student.mentor_report_score ?? "Not given"}</h3>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input type="number" min="0" max="10" step="0.1" value={mentorScoreDraft} onChange={(event) => setMentorScoreDraft(event.target.value)} placeholder="0 - 10" className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
+            <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore}>
+              {savingMentorScore ? "Saving..." : "Save Score"}
+            </Button>
+          </div>
         </Card>
       </div>
 
       {/* MEETINGS */}
       <Card className="p-4">
-        <h3>Meetings</h3>
+        <h3>Scheduled Meetings (Student Batch)</h3>
 
         {meetings.map((m) => (<div key={m.id} className="border p-2 mb-2">
             <p>{m.title}</p>
@@ -314,11 +392,25 @@ export default function StudentReportPage({ params }) {
                 {(p.value_text || p.score) && (<Badge className="bg-primary/20 text-primary">
                     {p.value_text || p.score}
                   </Badge>)}
+                {p.entry_type === "report" && p.score !== null && p.score !== undefined && (<Badge className="bg-accent/20 text-accent">Score: {p.score}</Badge>)}
               </div>
 
               <p className="mt-2 text-sm text-muted-foreground">
                 {p.description || "No description provided."}
               </p>
+
+              {p.entry_type === "report" && (<div className="mt-3 flex flex-wrap items-center gap-2">
+                  <label htmlFor={`report-score-${p.id}`} className="text-xs font-medium text-muted-foreground">
+                    Report Score (0-10)
+                  </label>
+                  <input id={`report-score-${p.id}`} type="number" min="0" max="10" step="0.1" value={scoreDraftByEntryId[p.id] ?? ""} onChange={(event) => setScoreDraftByEntryId((current) => ({
+                ...current,
+                [p.id]: event.target.value,
+            }))} className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
+                  <Button size="sm" variant="outline" onClick={() => handleReportScoreSave(p.id)} disabled={savingScoreEntryId === p.id}>
+                    {savingScoreEntryId === p.id ? "Saving..." : "Save Score"}
+                  </Button>
+                </div>)}
 
               <p className="mt-2 text-xs text-muted-foreground">
                 {p.created_at

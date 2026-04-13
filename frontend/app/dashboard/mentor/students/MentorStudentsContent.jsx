@@ -367,6 +367,9 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     marksEntries: 0,
                     skillEntries: 0,
                     reportEntries: 0,
+                    latestReportScore: 'N/A',
+                    reportScoreTotal: 0,
+                    reportScoreCount: 0,
                     latestType: 'N/A',
                     latestTitle: 'N/A',
                     latestValue: 'N/A',
@@ -380,6 +383,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     existing.skillEntries += 1;
                 if (entry.entry_type === 'report')
                     existing.reportEntries += 1;
+                if (entry.entry_type === 'report' && entry.score !== null && entry.score !== undefined && !Number.isNaN(Number(entry.score))) {
+                    existing.latestReportScore = String(entry.score);
+                    existing.reportScoreTotal += Number(entry.score);
+                    existing.reportScoreCount += 1;
+                }
                 if (existing.latestDate === 'N/A') {
                     existing.latestType = entry.entry_type || 'N/A';
                     existing.latestTitle = entry.title || 'N/A';
@@ -398,6 +406,8 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 { key: 'marks_entries', label: 'Marks Entries' },
                 { key: 'skill_entries', label: 'Skill Entries' },
                 { key: 'report_entries', label: 'Report Entries' },
+                { key: 'latest_report_score', label: 'Latest Report Score' },
+                { key: 'avg_report_score', label: 'Average Report Score' },
                 { key: 'latest_type', label: 'Latest Entry Type' },
                 { key: 'latest_title', label: 'Latest Entry Title' },
                 { key: 'latest_value', label: 'Latest Entry Value' },
@@ -416,6 +426,10 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     marks_entries: summary?.marksEntries ?? 0,
                     skill_entries: summary?.skillEntries ?? 0,
                     report_entries: summary?.reportEntries ?? 0,
+                    latest_report_score: summary?.latestReportScore || 'N/A',
+                    avg_report_score: summary && summary.reportScoreCount > 0
+                        ? Number((summary.reportScoreTotal / summary.reportScoreCount).toFixed(2))
+                        : 'N/A',
                     latest_type: summary?.latestType || 'N/A',
                     latest_title: summary?.latestTitle || 'N/A',
                     latest_value: summary?.latestValue || 'N/A',
@@ -745,13 +759,14 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     <Badge className={getStatusColor(student.status)}>{student.status}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleRemoveStudentFromBatch(student)} disabled={removingStudentId === student.id}>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" className="mr-1 text-destructive hover:text-destructive" onClick={() => handleRemoveStudentFromBatch(student)} disabled={removingStudentId === student.id}>
                         {removingStudentId === student.id ? 'Removing...' : 'Remove'}
                       </Button>
                       <Link href={`/dashboard/mentor/students/${student.userId}`}>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ChevronRight className="w-4 h-4 text-primary"/>
+                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
+                          View Report
+                          <ChevronRight className="ml-1 h-4 w-4"/>
                         </Button>
                       </Link>
                     </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Ban } from "lucide-react";
+import { Plus, Pencil, Ban, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,12 @@ export default function MentorMeetingsPage() {
     const [editingMeetingId, setEditingMeetingId] = useState(null);
     const [savingMeeting, setSavingMeeting] = useState(false);
     const [cancellingMeetingId, setCancellingMeetingId] = useState(null);
+    const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
+    const [attendanceMeeting, setAttendanceMeeting] = useState(null);
+    const [attendanceStudents, setAttendanceStudents] = useState([]);
+    const [attendanceByStudent, setAttendanceByStudent] = useState({});
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [attendanceSaving, setAttendanceSaving] = useState(false);
     const [newMeeting, setNewMeeting] = useState({
         title: "",
         batch: "",
@@ -162,6 +168,89 @@ export default function MentorMeetingsPage() {
         await fetchMeetings();
         alert("Meeting cancelled.");
     };
+    const openAttendanceDialog = async (meeting) => {
+        if (!meeting.batchId) {
+            alert("This meeting is not linked to a batch.");
+            return;
+        }
+        setAttendanceMeeting(meeting);
+        setAttendanceDialogOpen(true);
+        setAttendanceLoading(true);
+        const { data: assignmentData, error: assignmentError } = await supabase
+            .from("batch_students")
+            .select("student_id, student_name")
+            .eq("batch_id", meeting.batchId);
+        if (assignmentError) {
+            setAttendanceLoading(false);
+            alert("Unable to load batch students: " + assignmentError.message);
+            return;
+        }
+        const studentIds = Array.from(new Set((assignmentData || []).map((row) => row.student_id).filter(Boolean)));
+        let usersById = new Map();
+        if (studentIds.length > 0) {
+            const { data: usersData, error: usersError } = await supabase
+                .from("users")
+                .select("id, name, prn, email")
+                .in("id", studentIds);
+            if (usersError) {
+                setAttendanceLoading(false);
+                alert("Unable to load student details: " + usersError.message);
+                return;
+            }
+            usersById = new Map((usersData || []).map((student) => [student.id, student]));
+        }
+        const formattedStudents = (assignmentData || []).map((row) => {
+            const userEntry = usersById.get(row.student_id);
+            return {
+                id: row.student_id,
+                name: userEntry?.name || row.student_name || "Unknown Student",
+                prn: userEntry?.prn || "N/A",
+                email: userEntry?.email || "",
+            };
+        });
+        const { data: attendanceRows, error: attendanceError } = await supabase
+            .from("meeting_attendance")
+            .select("student_id, present")
+            .eq("meeting_id", meeting.id);
+        if (attendanceError) {
+            setAttendanceLoading(false);
+            alert("Unable to load existing attendance: " + attendanceError.message);
+            return;
+        }
+        const initialAttendance = {};
+        formattedStudents.forEach((student) => {
+            initialAttendance[student.id] = false;
+        });
+        (attendanceRows || []).forEach((row) => {
+            initialAttendance[row.student_id] = Boolean(row.present);
+        });
+        setAttendanceStudents(formattedStudents);
+        setAttendanceByStudent(initialAttendance);
+        setAttendanceLoading(false);
+    };
+    const handleSaveAttendance = async () => {
+        if (!attendanceMeeting || !user)
+            return;
+        setAttendanceSaving(true);
+        const payload = attendanceStudents.map((student) => ({
+            meeting_id: attendanceMeeting.id,
+            student_id: student.id,
+            mentor_id: user.id,
+            present: Boolean(attendanceByStudent[student.id]),
+            marked_by: user.id,
+            marked_at: new Date().toISOString(),
+        }));
+        const { error } = await supabase
+            .from("meeting_attendance")
+            .upsert(payload, { onConflict: "meeting_id,student_id" });
+        setAttendanceSaving(false);
+        if (error) {
+            alert("Unable to save attendance: " + error.message);
+            return;
+        }
+        setAttendanceDialogOpen(false);
+        alert("Attendance saved successfully.");
+    };
     const upcomingMeetings = meetings.filter((meeting) => {
         const scheduledDate = new Date(meeting.scheduledAt);
         return !Number.isNaN(scheduledDate.getTime()) && scheduledDate >= new Date();
@@ -262,6 +351,10 @@ export default function MentorMeetingsPage() {
                     <Pencil className="w-4 h-4"/>
                     Edit
                   </Button>
+                  <Button variant="outline" size="sm" onClick={() => openAttendanceDialog(meeting)}>
+                    <ClipboardCheck className="w-4 h-4"/>
+                    Attendance
+                  </Button>
                   <Button variant="outline" size="sm" className="text-destructive" onClick={() => handleCancelMeeting(meeting)} disabled={meeting.status === "Cancelled" || cancellingMeetingId === meeting.id}>
                     <Ban className="w-4 h-4"/>
                     {meeting.status === "Cancelled"
@@ -292,5 +385,40 @@ export default function MentorMeetingsPage() {
               </div>
             </Card>)))}
       </div>
+
+      <Dialog open={attendanceDialogOpen} onOpenChange={setAttendanceDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Mark Attendance
+              {attendanceMeeting ? ` - ${attendanceMeeting.title}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {attendanceLoading ? (<p className="text-sm text-muted-foreground">Loading batch students...</p>) : attendanceStudents.length === 0 ? (<p className="text-sm text-muted-foreground">No students found in this batch.</p>) : (<div className="space-y-4">
+              <div className="max-h-80 overflow-y-auto rounded-md border">
+                {attendanceStudents.map((student) => (<label key={student.id} className="flex items-center justify-between gap-4 border-b px-3 py-2 last:border-b-0">
+                    <div>
+                      <p className="text-sm font-medium">{student.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        PRN: {student.prn} {student.email ? `| ${student.email}` : ""}
+                      </p>
+                    </div>
+                    <input type="checkbox" checked={Boolean(attendanceByStudent[student.id])} onChange={(event) => setAttendanceByStudent((current) => ({
+                ...current,
+                [student.id]: event.target.checked,
+            }))} className="h-4 w-4"/>
+                  </label>))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAttendanceDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveAttendance} disabled={attendanceSaving}>
+                  {attendanceSaving ? "Saving..." : "Save Attendance"}
+                </Button>
+              </div>
+            </div>)}
+        </DialogContent>
+      </Dialog>
     </div>);
 }

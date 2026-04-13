@@ -38,10 +38,20 @@ export default function StudentDashboard() {
                 .eq('profile_id', user.id)
                 .single();
             if (student) {
+                let mentorReportScore = null;
+                const { data: scoreRow, error: scoreError } = await supabase
+                    .from('users')
+                    .select('mentor_report_score')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                if (!scoreError) {
+                    mentorReportScore = scoreRow?.mentor_report_score ?? null;
+                }
                 setStudentData({
                     ...student,
                     name: student.users?.name || 'Unknown',
                     email: student.users?.email || '',
+                    mentor_report_score: mentorReportScore,
                 });
                 // Get student's batches
                 if (student.batch_id) {
@@ -178,6 +188,12 @@ export default function StudentDashboard() {
             <p className="text-muted-foreground text-sm font-medium">Batch</p>
             <p className="text-lg font-semibold text-foreground">
               {batches.length > 0 ? batches[0].name : 'Not Assigned'}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-muted-foreground text-sm font-medium">Mentor Score (Out of 10)</p>
+            <p className="text-lg font-semibold text-accent">
+              {studentData?.mentor_report_score == null ? 'Not given yet' : `${studentData.mentor_report_score}/10`}
             </p>
           </div>
         </div>
