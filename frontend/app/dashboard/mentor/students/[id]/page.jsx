@@ -57,6 +57,7 @@ export default function StudentReportPage({ params }) {
     const [savingScoreEntryId, setSavingScoreEntryId] = useState(null);
     const [mentorScoreDraft, setMentorScoreDraft] = useState("");
     const [savingMentorScore, setSavingMentorScore] = useState(false);
+    const [mentorStatusDraft, setMentorStatusDraft] = useState("Good Standing");
     const [lastSentTime, setLastSentTime] = useState("");
     const [pageLoading, setPageLoading] = useState(true);
     // ✅ FETCH STUDENT
@@ -94,6 +95,12 @@ export default function StudentReportPage({ params }) {
                 score: parsed,
             }),
         });
+        
+        await supabase
+            .from("batch_students")
+            .update({ status: mentorStatusDraft })
+            .eq("student_id", id);
+
         const payload = await response.json().catch(() => ({}));
         setSavingMentorScore(false);
         if (!response.ok) {
@@ -125,8 +132,13 @@ export default function StudentReportPage({ params }) {
         const fetchMeetings = async () => {
             const { data: batchAssignments, error: assignmentError } = await supabase
                 .from("batch_students")
-                .select("batch_id")
+                .select("batch_id, status")
                 .eq("student_id", id);
+            
+            if (batchAssignments && batchAssignments.length > 0 && batchAssignments[0].status) {
+                setMentorStatusDraft(batchAssignments[0].status);
+            }
+
             if (assignmentError) {
                 console.error("Error fetching student batch assignments:", assignmentError.message);
                 setMeetings([]);
@@ -397,12 +409,23 @@ export default function StudentReportPage({ params }) {
         </Card>
 
         <Card className="p-4">
-          <p>Mentor Score (Out of 10)</p>
+          <p>Mentor Score & Status</p>
           <h3>{student.mentor_report_score ?? "Not given"}</h3>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input type="number" min="0" max="10" step="0.1" value={mentorScoreDraft} onChange={(event) => setMentorScoreDraft(event.target.value)} placeholder="0 - 10" className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
-            <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore}>
-              {savingMentorScore ? "Saving..." : "Save Score"}
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="number" min="0" max="10" step="0.1" value={mentorScoreDraft} onChange={(event) => setMentorScoreDraft(event.target.value)} placeholder="0 - 10" className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
+              <select value={mentorStatusDraft} onChange={(e) => setMentorStatusDraft(e.target.value)} className="h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground">
+                <option value="Excellent">Excellent</option>
+                <option value="Outstanding">Outstanding</option>
+                <option value="Good Standing">Good Standing</option>
+                <option value="Average">Average</option>
+                <option value="Needs Improvement">Needs Improvement</option>
+                <option value="At Risk">At Risk</option>
+                <option value="Warning">Warning</option>
+              </select>
+            </div>
+            <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore} className="w-fit">
+              {savingMentorScore ? "Saving..." : "Save Score & Status"}
             </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">

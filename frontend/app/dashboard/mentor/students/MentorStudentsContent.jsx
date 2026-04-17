@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, BarChart3 } from 'lucide-react';
+import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, BarChart3, Edit, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,11 +30,18 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
     const [comparisonData, setComparisonData] = useState([]);
     const [isComparisonLoading, setIsComparisonLoading] = useState(false);
     const [comparisonMessage, setComparisonMessage] = useState('');
+    const [isEditDatesOpen, setIsEditDatesOpen] = useState(false);
+    const [editingDatesStudent, setEditingDatesStudent] = useState(null);
+    const [editStartDate, setEditStartDate] = useState('');
+    const [editEndDate, setEditEndDate] = useState('');
+    const [editStatus, setEditStatus] = useState('Good Standing');
+    const [missingMigration, setMissingMigration] = useState(false);
     const comparisonBarColors = ['#ff2d55', '#9acd32', '#1ea7d5', '#f4ce14', '#ff7a00', '#7c4dff', '#00c2a8'];
     // New student form
     const [newStudent, setNewStudent] = useState({
-        name: '',
-        email: '',
+        prn: '',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
         batch: '',
     });
     // New batch form
@@ -55,18 +62,47 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             return;
         }
         const batchIds = (batchData || []).map((batch) => batch.id);
-        const { data: assignmentData, error: assignmentError } = batchIds.length > 0
-            ? await supabase
+        let assignmentData = [];
+        let assignmentError = null;
+        let requiresMigration = false;
+
+        if (batchIds.length > 0) {
+            const result = await supabase
                 .from('batch_students')
-                .select('id, batch_id, student_id, student_name')
-                .in('batch_id', batchIds)
-            : { data: [], error: null };
+                .select('id, batch_id, student_id, student_name, start_date, end_date, status')
+                .in('batch_id', batchIds);
+            
+            if (result.error && result.error.message.includes('column')) {
+                // Fallback if start_date, end_date, or status columns don't exist yet
+                requiresMigration = true;
+                const fallbackResult = await supabase
+                    .from('batch_students')
+                    .select('id, batch_id, student_id, student_name')
+                    .in('batch_id', batchIds);
+                assignmentData = fallbackResult.data || [];
+                assignmentError = fallbackResult.error;
+            } else {
+                assignmentData = result.data || [];
+                assignmentError = result.error;
+            }
+        }
+
         if (assignmentError) {
             console.error('Error fetching batch assignments:', assignmentError.message);
             return;
         }
+
+        if (requiresMigration) {
+            console.warn('Database missing new columns: start_date, end_date, status');
+            setMissingMigration(true);
+        } else {
+            setMissingMigration(false);
+        }
         const studentIds = Array.from(new Set((assignmentData || []).map((assignment) => assignment.student_id).filter(Boolean)));
         let usersById = new Map();
+        let batchMeetingCount = {};
+        let studentAttendance = {};
+
         if (studentIds.length > 0) {
             const { data: userData, error: userError } = await supabase
                 .from('users')
@@ -77,7 +113,31 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 return;
             }
             usersById = new Map((userData || []).map((entry) => [entry.id, entry]));
+
+            // Fetch meetings for denominator
+            if (batchIds.length > 0) {
+                const { data: meetingsData } = await supabase
+                    .from('meetings')
+                    .select('id, batch_id')
+                    .in('batch_id', batchIds);
+                
+                (meetingsData || []).forEach(m => {
+                    batchMeetingCount[m.batch_id] = (batchMeetingCount[m.batch_id] || 0) + 1;
+                });
+            }
+
+            // Fetch attendance for numerator
+            const { data: attendanceData } = await supabase
+                .from('meeting_attendance')
+                .select('student_id, present')
+                .in('student_id', studentIds);
+
+            (attendanceData || []).forEach(a => {
+                if (!studentAttendance[a.student_id]) studentAttendance[a.student_id] = 0;
+                if (a.present) studentAttendance[a.student_id]++;
+            });
         }
+        
         const formattedBatches = (batchData || []).map((batch) => ({
             id: batch.id,
             name: batch.name,
@@ -98,7 +158,10 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 email: matchedUser?.email || '',
                 batch: batchNameById.get(assignment.batch_id) || 'Unknown Batch',
                 cgpa: matchedUser?.cgpa ?? 0,
-                status: 'Good Standing',
+                status: assignment.status || 'Good Standing',
+                startDate: assignment.start_date || '',
+                endDate: assignment.end_date || '',
+                attendance: `${studentAttendance[assignment.student_id] || 0}/${batchMeetingCount[assignment.batch_id] || 0}`,
             };
         });
         setStudents(formattedStudents);
@@ -133,7 +196,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         return matchesSearch && matchesBatch;
     });
     const handleAddStudent = async () => {
-        if (!newStudent.name || !newStudent.email || !newStudent.batch)
+        if (!newStudent.prn || !newStudent.batch)
             return;
         const selectedBatch = batches.find((batch) => batch.name === newStudent.batch);
         if (!selectedBatch) {
@@ -143,11 +206,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         const { data: existingUser, error: userError } = await supabase
             .from('users')
             .select('id, name, email, role, prn, cgpa')
-            .ilike('email', newStudent.email.trim())
+            .eq('prn', newStudent.prn.trim())
             .eq('role', 'student')
             .maybeSingle();
         if (userError || !existingUser) {
-            alert('Student must already exist in users before assigning to a batch.');
+            alert('Student with this PRN not found. Ensure the student exists.');
             return;
         }
         const { data: existingAssignment, error: existingAssignmentError } = await supabase
@@ -162,38 +225,58 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         }
         if (existingAssignment) {
             alert('This student is already assigned to the selected batch.');
-            setNewStudent({ name: '', email: '', batch: '' });
+            setNewStudent({ prn: '', startDate: '', endDate: '', batch: '' });
             setIsAddStudentOpen(false);
             return;
         }
-        const { error: batchStudentError } = await supabase
+        const { data: newAssignment, error: batchStudentError } = await supabase
             .from('batch_students')
             .insert({
             batch_id: selectedBatch.id,
             student_id: existingUser.id,
-            student_name: existingUser.name || newStudent.name,
-        });
+            student_name: existingUser.name || 'Unknown',
+            start_date: newStudent.startDate || null,
+            end_date: newStudent.endDate || null,
+        })
+            .select('id')
+            .single();
         if (batchStudentError) {
             alert('Error saving batch assignment: ' + batchStudentError.message);
             return;
         }
+        try {
+            await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentEmail: existingUser.email,
+                    studentName: existingUser.name,
+                    actionType: 'batch_allocation',
+                    message: `You have been allocated to the batch: ${selectedBatch.name}`
+                })
+            });
+        } catch (emailErr) {
+            console.error('Failed to send notification email:', emailErr);
+        }
         const student = {
-            id: `${existingUser.id}-${selectedBatch.id}`,
-            assignmentId: null,
+            id: newAssignment?.id || `${existingUser.id}-${selectedBatch.id}`,
+            assignmentId: newAssignment?.id || null,
             batchId: selectedBatch.id,
             userId: existingUser.id,
-            name: existingUser.name || newStudent.name,
-            prn: existingUser.prn || `CS${String(students.length + 1).padStart(3, '0')}`,
-            email: existingUser.email || newStudent.email,
+            name: existingUser.name || 'Unknown',
+            prn: existingUser.prn || newStudent.prn,
+            email: existingUser.email || '',
             batch: selectedBatch.name,
             cgpa: existingUser.cgpa ?? 0,
             status: 'Good Standing',
+            startDate: newStudent.startDate || '',
+            endDate: newStudent.endDate || '',
         };
         setStudents([...students, student]);
         setBatches(batches.map((batch) => batch.id === selectedBatch.id
             ? { ...batch, studentCount: batch.studentCount + 1 }
             : batch));
-        setNewStudent({ name: '', email: '', batch: '' });
+        setNewStudent({ prn: '', startDate: '', endDate: '', batch: '' });
         setIsAddStudentOpen(false);
         alert('Student added to batch successfully!');
     };
@@ -258,6 +341,31 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         }
         await fetchData();
         alert('Batch deleted successfully!');
+    };
+    const handleUpdateDates = async () => {
+        if (!editingDatesStudent || !editingDatesStudent.assignmentId) {
+            alert('Cannot update dates: Missing assignment ID');
+            return;
+        }
+        const { error } = await supabase
+            .from('batch_students')
+            .update({
+                start_date: editStartDate || null,
+                end_date: editEndDate || null,
+            })
+            .eq('id', editingDatesStudent.assignmentId);
+
+        if (error) {
+            alert('Error updating dates: ' + error.message);
+            return;
+        }
+
+        setStudents(current => current.map(s => 
+            s.id === editingDatesStudent.id ? { ...s, startDate: editStartDate, endDate: editEndDate } : s
+        ));
+        setEditingDatesStudent(null);
+        setIsEditDatesOpen(false);
+        alert('Dates updated successfully!');
     };
     const handleRemoveStudentFromBatch = async (student) => {
         const confirmed = window.confirm(`Remove ${student.name} from batch "${student.batch}"? This will also remove them from your mentoring list for that batch.`);
@@ -546,6 +654,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
           <p className="text-muted-foreground text-sm mt-1">Manage your assigned students and batches</p>
         </div>
         <div className="flex gap-3 flex-wrap items-center">
+
           <Select value={reportBatchId} onValueChange={setReportBatchId}>
             <SelectTrigger className="w-[220px] bg-card border-border">
               <SelectValue placeholder="Select report scope"/>
@@ -608,12 +717,16 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="studentName">Student Name</Label>
-                  <Input id="studentName" placeholder="Full name" value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} className="bg-card border-border"/>
+                  <Label htmlFor="studentPrn">Student PRN</Label>
+                  <Input id="studentPrn" placeholder="Enter PRN (e.g. CS001)" value={newStudent.prn} onChange={(e) => setNewStudent({ ...newStudent, prn: e.target.value })} className="bg-card border-border"/>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="studentEmail">Email</Label>
-                  <Input id="studentEmail" type="email" placeholder="student@college.edu" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} className="bg-card border-border"/>
+                  <Label htmlFor="studentStartDate">Start Date (Optional)</Label>
+                  <Input id="studentStartDate" type="date" value={newStudent.startDate} onChange={(e) => setNewStudent({ ...newStudent, startDate: e.target.value })} className="bg-card border-border"/>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="studentEndDate">End Date (Optional)</Label>
+                  <Input id="studentEndDate" type="date" value={newStudent.endDate} onChange={(e) => setNewStudent({ ...newStudent, endDate: e.target.value })} className="bg-card border-border"/>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="studentBatch">Batch</Label>
@@ -628,7 +741,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setIsAddStudentOpen(false)}>Cancel</Button>
-                  <Button onClick={handleAddStudent} disabled={!newStudent.name || !newStudent.email || !newStudent.batch}>
+                  <Button onClick={handleAddStudent} disabled={!newStudent.prn || !newStudent.batch}>
                     Add Student
                   </Button>
                 </div>
@@ -735,11 +848,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-foreground font-semibold">Name</TableHead>
                 <TableHead className="text-foreground font-semibold">PRN</TableHead>
-                <TableHead className="text-foreground font-semibold">Email</TableHead>
                 <TableHead className="text-foreground font-semibold">Batch</TableHead>
-                <TableHead className="text-center text-foreground font-semibold">CGPA</TableHead>
+                <TableHead className="text-foreground font-semibold">Dates</TableHead>
+                <TableHead className="text-foreground font-semibold">Attendance</TableHead>
                 <TableHead className="text-foreground font-semibold">Status</TableHead>
-                <TableHead className="text-right text-foreground font-semibold">Student Report</TableHead>
+                <TableHead className="text-right text-foreground font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -750,23 +863,41 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{student.prn}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{student.email}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{student.batch}</Badge>
                   </TableCell>
-                  <TableCell className="text-center font-semibold text-foreground">{student.cgpa || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                    {student.startDate ? `Start: ${student.startDate}` : 'Start: -'}
+                    <br />
+                    {student.endDate ? `End: ${student.endDate}` : 'End: -'}
+                  </TableCell>
+                  <TableCell className="text-center font-medium">
+                    {student.attendance}
+                  </TableCell>
                   <TableCell>
                     <Badge className={getStatusColor(student.status)}>{student.status}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" className="mr-1 text-destructive hover:text-destructive" onClick={() => handleRemoveStudentFromBatch(student)} disabled={removingStudentId === student.id}>
-                        {removingStudentId === student.id ? 'Removing...' : 'Remove'}
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingDatesStudent(student);
+                        setEditStartDate(student.startDate || '');
+                        setEditEndDate(student.endDate || '');
+                        setIsEditDatesOpen(true);
+                      }} title="Edit Dates">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveStudentFromBatch(student);
+                      }} disabled={removingStudentId === student.id} title="Remove Student">
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                       <Link href={`/dashboard/mentor/students/${student.userId}`}>
                         <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
-                          View Report
-                          <ChevronRight className="ml-1 h-4 w-4"/>
+                          Report
+                          <ChevronRight className="ml-1 h-3 w-3"/>
                         </Button>
                       </Link>
                     </div>
@@ -776,6 +907,31 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
           </Table>
         </div>
       </Card>
+
+      <Dialog open={isEditDatesOpen} onOpenChange={setIsEditDatesOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Student Dates</DialogTitle>
+            <DialogDescription>
+              Update the start and end dates for {editingDatesStudent?.name} in {editingDatesStudent?.batch}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="editStartDate">Start Date (Optional)</Label>
+              <Input id="editStartDate" type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} className="bg-card border-border"/>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editEndDate">End Date (Optional)</Label>
+              <Input id="editEndDate" type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} className="bg-card border-border"/>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setIsEditDatesOpen(false)}>Cancel</Button>
+              <Button onClick={handleUpdateDates}>Save Dates</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>);
 }
 

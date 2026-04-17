@@ -11,6 +11,7 @@ const supabaseAdmin =
     : null;
 
 function getActionLine(actionType) {
+  if (actionType === "batch_allocation") return "You have been successfully added to a Mentor batch.";
   if (actionType === "meeting") return "A meeting has been scheduled.";
   if (actionType === "score") return "Your score has been updated.";
   if (actionType === "guidance") return "New guidance has been provided.";
@@ -46,8 +47,8 @@ export default async function handler(req, res) {
     if (!studentEmail || !studentEmail.trim()) {
       return res.status(400).json({ error: "studentEmail is required." });
     }
-    if (!actionType || !["meeting", "score", "guidance"].includes(actionType)) {
-      return res.status(400).json({ error: "actionType must be meeting, score, or guidance." });
+    if (!actionType || !["meeting", "score", "guidance", "batch_allocation"].includes(actionType)) {
+      return res.status(400).json({ error: "actionType must be meeting, score, guidance, or batch_allocation." });
     }
 
     let resolvedName = studentName || "Student";
