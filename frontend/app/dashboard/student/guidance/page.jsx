@@ -1,4 +1,6 @@
 "use client";
+import { toast } from "sonner";
+
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquare, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -140,7 +142,7 @@ export default function StudentGuidancePage() {
         });
         setSending(false);
         if (error) {
-            alert("Unable to send your message: " + error.message);
+            toast.error("Unable to send your message: " + error.message);
             return;
         }
         setDraft("");

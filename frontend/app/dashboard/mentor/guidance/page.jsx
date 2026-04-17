@@ -1,4 +1,6 @@
 "use client";
+import { toast } from "sonner";
+
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquare, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -192,7 +194,7 @@ export default function MentorGuidancePage() {
         });
         setSending(false);
         if (error) {
-            alert("Unable to send guidance reply: " + error.message);
+            toast.error("Unable to send guidance reply: " + error.message);
             return;
         }
         try {
@@ -200,7 +202,7 @@ export default function MentorGuidancePage() {
             setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
         }
         catch (emailError) {
-            alert(`Guidance saved, but email failed: ${emailError.message}`);
+            toast.error(`Guidance saved, but email failed: ${emailError.message}`);
         }
         setDraft("");
         await fetchThreads();

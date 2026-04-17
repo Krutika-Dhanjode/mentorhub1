@@ -1,4 +1,6 @@
 'use client';
+import { toast } from "sonner";
+
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Download, Save } from 'lucide-react';
@@ -398,14 +400,14 @@ export default function StudentSettingsPage() {
             })
                 .eq('id', user.id);
             if (error) {
-                alert('Error saving profile: ' + error.message);
+                toast.error('Error saving profile: ' + error.message);
             }
             else {
-                alert('Profile saved successfully!');
+                toast.success('Profile saved successfully!');
             }
         }
         catch {
-            alert('Failed to save profile');
+            toast.error('Failed to save profile');
         }
         finally {
             setIsSaving(false);
@@ -639,7 +641,7 @@ export default function StudentSettingsPage() {
             .upload(filePath, file, { upsert: true });
         if (uploadError) {
             setIsUploadingPhoto(false);
-            alert('Unable to upload photo: ' + uploadError.message);
+            toast.error('Unable to upload photo: ' + uploadError.message);
             return;
         }
         const { data } = supabase.storage

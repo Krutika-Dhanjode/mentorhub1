@@ -1,4 +1,6 @@
 "use client";
+import { toast } from "sonner";
+
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -126,10 +128,10 @@ export default function MentorDashboard() {
             student_count: 0,
         });
         if (error) {
-            alert("Unable to create batch: " + error.message);
+            toast.error("Unable to create batch: " + error.message);
             return;
         }
-        alert("Batch created!");
+        toast.success("Batch created!");
         await fetchDashboardData();
     };
     const deleteBatch = async (batch) => {
@@ -146,7 +148,7 @@ export default function MentorDashboard() {
             .eq("mentor_id", user.id);
         if (meetingError) {
             setDeletingBatchId(null);
-            alert("Unable to delete batch meetings: " + meetingError.message);
+            toast.error("Unable to delete batch meetings: " + meetingError.message);
             return;
         }
         const { error } = await supabase
@@ -156,12 +158,12 @@ export default function MentorDashboard() {
             .eq("mentor_id", user.id);
         setDeletingBatchId(null);
         if (error) {
-            alert("Unable to delete batch: " + error.message);
+            toast.error("Unable to delete batch: " + error.message);
             return;
         }
         await fetchDashboardData();
         await fetchMeetings();
-        alert("Batch deleted successfully.");
+        toast.success("Batch deleted successfully.");
     };
     const removeStudentFromBatch = async (student) => {
         const confirmed = window.confirm(`Remove ${student.name} from ${student.batchName}?`);
@@ -174,11 +176,11 @@ export default function MentorDashboard() {
             .eq("id", student.assignmentId);
         setRemovingAssignmentId(null);
         if (error) {
-            alert("Unable to remove student from batch: " + error.message);
+            toast.error("Unable to remove student from batch: " + error.message);
             return;
         }
         await fetchDashboardData();
-        alert("Student removed from batch.");
+        toast.success("Student removed from batch.");
     };
     const handleScheduleMeeting = async (meetingData) => {
         if (!user)
@@ -193,10 +195,10 @@ export default function MentorDashboard() {
             status: "Scheduled",
         });
         if (error) {
-            alert("Unable to schedule meeting: " + error.message);
+            toast.error("Unable to schedule meeting: " + error.message);
             return;
         }
-        alert("Meeting scheduled!");
+        toast.success("Meeting scheduled!");
         await fetchMeetings();
         setIsModalOpen(false);
     };

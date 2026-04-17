@@ -1,4 +1,6 @@
 'use client';
+import { toast } from "sonner";
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, BarChart3, Edit, Calendar } from 'lucide-react';
@@ -200,7 +202,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             return;
         const selectedBatch = batches.find((batch) => batch.name === newStudent.batch);
         if (!selectedBatch) {
-            alert('Selected batch not found.');
+            toast.error('Selected batch not found.');
             return;
         }
         const { data: existingUser, error: userError } = await supabase
@@ -210,7 +212,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .eq('role', 'student')
             .maybeSingle();
         if (userError || !existingUser) {
-            alert('Student with this PRN not found. Ensure the student exists.');
+            toast.error('Student with this PRN not found. Ensure the student exists.');
             return;
         }
         const { data: existingAssignment, error: existingAssignmentError } = await supabase
@@ -220,11 +222,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .eq('student_id', existingUser.id)
             .maybeSingle();
         if (existingAssignmentError) {
-            alert('Error checking batch assignment: ' + existingAssignmentError.message);
+            toast.error('Error checking batch assignment: ' + existingAssignmentError.message);
             return;
         }
         if (existingAssignment) {
-            alert('This student is already assigned to the selected batch.');
+            toast.error('This student is already assigned to the selected batch.');
             setNewStudent({ prn: '', startDate: '', endDate: '', batch: '' });
             setIsAddStudentOpen(false);
             return;
@@ -241,7 +243,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .select('id')
             .single();
         if (batchStudentError) {
-            alert('Error saving batch assignment: ' + batchStudentError.message);
+            toast.error('Error saving batch assignment: ' + batchStudentError.message);
             return;
         }
         try {
@@ -278,7 +280,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             : batch));
         setNewStudent({ prn: '', startDate: '', endDate: '', batch: '' });
         setIsAddStudentOpen(false);
-        alert('Student added to batch successfully!');
+        toast.success('Student added to batch successfully!');
     };
     const handleCreateBatch = async () => {
         if (!user)
@@ -295,7 +297,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .select('id, name')
             .single();
         if (error) {
-            alert('Error creating batch: ' + error.message);
+            toast.error('Error creating batch: ' + error.message);
             return;
         }
         const createdBatch = {
@@ -307,7 +309,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         setBatches((current) => [...current, createdBatch].sort((a, b) => a.name.localeCompare(b.name)));
         setNewBatch({ name: '', className: '' });
         setIsCreateBatchOpen(false);
-        alert('Batch created successfully!');
+        toast.success('Batch created successfully!');
     };
     const handleDeleteBatch = async (batch) => {
         if (!user)
@@ -323,7 +325,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .eq('mentor_id', user.id);
         if (meetingError) {
             setDeletingBatchId(null);
-            alert('Error deleting batch meetings: ' + meetingError.message);
+            toast.error('Error deleting batch meetings: ' + meetingError.message);
             return;
         }
         const { error } = await supabase
@@ -333,18 +335,18 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .eq('mentor_id', user.id);
         setDeletingBatchId(null);
         if (error) {
-            alert('Error deleting batch: ' + error.message);
+            toast.error('Error deleting batch: ' + error.message);
             return;
         }
         if (selectedBatch === batch.name) {
             setSelectedBatch(null);
         }
         await fetchData();
-        alert('Batch deleted successfully!');
+        toast.success('Batch deleted successfully!');
     };
     const handleUpdateDates = async () => {
         if (!editingDatesStudent || !editingDatesStudent.assignmentId) {
-            alert('Cannot update dates: Missing assignment ID');
+            toast.error('Cannot update dates: Missing assignment ID');
             return;
         }
         const { error } = await supabase
@@ -356,7 +358,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .eq('id', editingDatesStudent.assignmentId);
 
         if (error) {
-            alert('Error updating dates: ' + error.message);
+            toast.error('Error updating dates: ' + error.message);
             return;
         }
 
@@ -365,7 +367,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         ));
         setEditingDatesStudent(null);
         setIsEditDatesOpen(false);
-        alert('Dates updated successfully!');
+        toast.success('Dates updated successfully!');
     };
     const handleRemoveStudentFromBatch = async (student) => {
         const confirmed = window.confirm(`Remove ${student.name} from batch "${student.batch}"? This will also remove them from your mentoring list for that batch.`);
@@ -383,11 +385,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         const { error } = await query;
         setRemovingStudentId(null);
         if (error) {
-            alert('Unable to remove student from batch: ' + error.message);
+            toast.error('Unable to remove student from batch: ' + error.message);
             return;
         }
         await fetchData();
-        alert('Student removed from batch successfully.');
+        toast.success('Student removed from batch successfully.');
     };
     const csvEscape = (value) => {
         if (value === null || value === undefined)
@@ -406,7 +408,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 .eq('mentor_id', user.id)
                 .order('name', { ascending: true });
             if (batchError) {
-                alert('Unable to fetch mentor batches: ' + batchError.message);
+                toast.error('Unable to fetch mentor batches: ' + batchError.message);
                 return;
             }
             const selectedScopeBatchId = targetBatchId || (reportBatchId === 'all' ? null : reportBatchId);
@@ -415,7 +417,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 : (mentorBatches || []);
             const batchIds = scopedBatches.map((batch) => batch.id);
             if (batchIds.length === 0) {
-                alert('No batches found for the selected report scope.');
+                toast.success('No batches found for the selected report scope.');
                 return;
             }
             const { data: assignments, error: assignmentError } = await supabase
@@ -423,12 +425,12 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 .select('batch_id, student_id')
                 .in('batch_id', batchIds);
             if (assignmentError) {
-                alert('Unable to fetch batch assignments: ' + assignmentError.message);
+                toast.error('Unable to fetch batch assignments: ' + assignmentError.message);
                 return;
             }
             const uniqueStudentIds = Array.from(new Set((assignments || []).map((entry) => entry.student_id).filter(Boolean)));
             if (uniqueStudentIds.length === 0) {
-                alert('No students found in the selected report scope.');
+                toast.success('No students found in the selected report scope.');
                 return;
             }
             const { data: studentRows, error: studentError } = await supabase
@@ -437,7 +439,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 .in('id', uniqueStudentIds)
                 .eq('role', 'student');
             if (studentError) {
-                alert('Unable to fetch student details: ' + studentError.message);
+                toast.error('Unable to fetch student details: ' + studentError.message);
                 return;
             }
             const { data: progressRows, error: progressError } = await supabase
@@ -446,7 +448,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 .in('student_id', uniqueStudentIds)
                 .order('created_at', { ascending: false });
             if (progressError) {
-                alert('Unable to fetch student progress data: ' + progressError.message);
+                toast.error('Unable to fetch student progress data: ' + progressError.message);
                 return;
             }
             const batchNameById = new Map(scopedBatches.map((batch) => [batch.id, batch.name]));

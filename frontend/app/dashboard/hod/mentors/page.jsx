@@ -1,4 +1,6 @@
 'use client';
+import { toast } from "sonner";
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, Download, Plus, Search, Users, BookOpen, BarChart3 } from 'lucide-react';
@@ -173,7 +175,7 @@ export default function AdminMentorsPage() {
             .eq('email', normalizedEmail)
             .maybeSingle();
         if (lookupError) {
-            alert('Unable to check existing mentor: ' + lookupError.message);
+            toast.error('Unable to check existing mentor: ' + lookupError.message);
             setIsSaving(false);
             return;
         }
@@ -191,7 +193,7 @@ export default function AdminMentorsPage() {
                 ...payload,
             });
         if (error) {
-            alert('Unable to save mentor: ' + error.message);
+            toast.error('Unable to save mentor: ' + error.message);
             setIsSaving(false);
             return;
         }
@@ -203,7 +205,7 @@ export default function AdminMentorsPage() {
             mentor_user_id: mentorUserId,
         }, { onConflict: 'hod_id,mentor_user_id' });
         if (linkError) {
-            alert('Unable to map mentor to Admin: ' + linkError.message);
+            toast.error('Unable to map mentor to Admin: ' + linkError.message);
             setIsSaving(false);
             return;
         }
@@ -224,7 +226,7 @@ export default function AdminMentorsPage() {
             .eq('mentor_id', selectedMentorId)
             .order('name', { ascending: true });
         if (batchError) {
-            alert('Unable to load mentor batches: ' + batchError.message);
+            toast.error('Unable to load mentor batches: ' + batchError.message);
             return;
         }
         const batchIds = (batchData || []).map((batch) => batch.id);

@@ -1,4 +1,6 @@
 "use client";
+import { toast } from "sonner";
+
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Ban, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,7 +79,7 @@ export default function MentorMeetingsPage() {
             .eq("mentor_id", user.id)
             .order("name", { ascending: true });
         if (error) {
-            alert("Unable to load batches: " + error.message);
+            toast.error("Unable to load batches: " + error.message);
             return;
         }
         const loadedBatches = (data || []);
@@ -153,15 +155,15 @@ export default function MentorMeetingsPage() {
                         }
                     }
                     if (failedEmails > 0) {
-                        alert(`${failedEmails} meeting notification email(s) failed to send.`);
+                        toast.error(`${failedEmails} meeting notification email(s) failed to send.`);
                     }
                 }
             }
-            alert(editingMeetingId ? "Meeting updated successfully." : "Meeting saved successfully.");
+            toast.success(editingMeetingId ? "Meeting updated successfully." : "Meeting saved successfully.");
             await fetchMeetings();
         }
         else {
-            alert("Unable to save meeting: " + error.message);
+            toast.error("Unable to save meeting: " + error.message);
         }
         resetMeetingForm();
         setIsDialogOpen(false);
@@ -200,15 +202,15 @@ export default function MentorMeetingsPage() {
             .eq("mentor_id", user.id);
         setCancellingMeetingId(null);
         if (error) {
-            alert("Unable to cancel meeting: " + error.message);
+            toast.error("Unable to cancel meeting: " + error.message);
             return;
         }
         await fetchMeetings();
-        alert("Meeting cancelled.");
+        toast.success("Meeting cancelled.");
     };
     const openAttendanceDialog = async (meeting) => {
         if (!meeting.batchId) {
-            alert("This meeting is not linked to a batch.");
+            toast.success("This meeting is not linked to a batch.");
             return;
         }
         setAttendanceMeeting(meeting);
@@ -220,7 +222,7 @@ export default function MentorMeetingsPage() {
             .eq("batch_id", meeting.batchId);
         if (assignmentError) {
             setAttendanceLoading(false);
-            alert("Unable to load batch students: " + assignmentError.message);
+            toast.error("Unable to load batch students: " + assignmentError.message);
             return;
         }
         const studentIds = Array.from(new Set((assignmentData || []).map((row) => row.student_id).filter(Boolean)));
@@ -232,7 +234,7 @@ export default function MentorMeetingsPage() {
                 .in("id", studentIds);
             if (usersError) {
                 setAttendanceLoading(false);
-                alert("Unable to load student details: " + usersError.message);
+                toast.error("Unable to load student details: " + usersError.message);
                 return;
             }
             usersById = new Map((usersData || []).map((student) => [student.id, student]));
@@ -252,7 +254,7 @@ export default function MentorMeetingsPage() {
             .eq("meeting_id", meeting.id);
         if (attendanceError) {
             setAttendanceLoading(false);
-            alert("Unable to load existing attendance: " + attendanceError.message);
+            toast.error("Unable to load existing attendance: " + attendanceError.message);
             return;
         }
         const initialAttendance = {};
@@ -283,11 +285,11 @@ export default function MentorMeetingsPage() {
             .upsert(payload, { onConflict: "meeting_id,student_id" });
         setAttendanceSaving(false);
         if (error) {
-            alert("Unable to save attendance: " + error.message);
+            toast.error("Unable to save attendance: " + error.message);
             return;
         }
         setAttendanceDialogOpen(false);
-        alert("Attendance saved successfully.");
+        toast.success("Attendance saved successfully.");
     };
     const upcomingMeetings = meetings.filter((meeting) => {
         const scheduledDate = new Date(meeting.scheduledAt);

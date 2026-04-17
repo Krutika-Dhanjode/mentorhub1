@@ -1,4 +1,6 @@
 'use client';
+import { toast } from "sonner";
+
 import { useState, useEffect } from 'react';
 import { User, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,14 +43,14 @@ export default function AdminSettingsPage() {
             })
                 .eq('id', user.id);
             if (error) {
-                alert('Error saving profile: ' + error.message);
+                toast.error('Error saving profile: ' + error.message);
             }
             else {
-                alert('Profile saved successfully!');
+                toast.success('Profile saved successfully!');
             }
         }
         catch (err) {
-            alert('Failed to save profile');
+            toast.error('Failed to save profile');
         }
         finally {
             setIsSaving(false);

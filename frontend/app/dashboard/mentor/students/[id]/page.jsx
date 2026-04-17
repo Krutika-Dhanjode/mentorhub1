@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { sendNotificationEmail } from "@/lib/send-notification-email";
+import { toast } from "sonner";
 const escapePdfText = (value) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 const buildPdfBlob = (lines) => {
     const linesPerPage = 32;
@@ -83,7 +84,7 @@ export default function StudentReportPage({ params }) {
     const handleSaveMentorScore = async () => {
         const parsed = mentorScoreDraft === "" ? null : Number(mentorScoreDraft);
         if (mentorScoreDraft !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
-            alert("Please enter a valid mentor score between 0 and 10.");
+            toast.error("Please enter a valid mentor score between 0 and 10.");
             return;
         }
         setSavingMentorScore(true);
@@ -106,10 +107,10 @@ export default function StudentReportPage({ params }) {
         if (!response.ok) {
             const message = payload?.error || "Unable to save mentor score.";
             if (String(message).includes("mentor_report_score")) {
-                alert("Unable to save mentor score: column mentor_report_score is missing. Please run the SQL migration first.");
+                toast.error("Unable to save mentor score: column mentor_report_score is missing. Please run the SQL migration first.");
                 return;
             }
-            alert("Unable to save mentor score: " + message);
+            toast.error("Unable to save mentor score: " + message);
             return;
         }
         setStudent((current) => (current
@@ -121,10 +122,10 @@ export default function StudentReportPage({ params }) {
         try {
             const emailResponse = await sendNotificationEmail(student?.email || "", student?.name || "Student", "score", `Your mentor score has been updated to ${parsed == null ? "Not given" : `${parsed}/10`}.`);
             setLastSentTime(emailResponse?.lastSentAt || new Date().toISOString());
-            alert("Mentor score saved and email sent.");
+            toast.success("Mentor score saved and email sent.");
         }
         catch (emailError) {
-            alert(`Mentor score saved, but email failed: ${emailError.message}`);
+            toast.error(`Mentor score saved, but email failed: ${emailError.message}`);
         }
     };
     // ✅ FETCH MEETINGS
@@ -180,7 +181,7 @@ export default function StudentReportPage({ params }) {
         const rawValue = scoreDraftByEntryId[entryId];
         const parsed = rawValue === "" ? null : Number(rawValue);
         if (rawValue !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
-            alert("Please enter a valid score between 0 and 10.");
+            toast.error("Please enter a valid score between 0 and 10.");
             return;
         }
         const { data: studentByEmail, error: studentLookupError } = await supabase
@@ -189,7 +190,7 @@ export default function StudentReportPage({ params }) {
             .eq("email", student?.email || "")
             .maybeSingle();
         if (studentLookupError || !studentByEmail?.id) {
-            alert("Unable to find student by email for score update.");
+            toast.error("Unable to find student by email for score update.");
             return;
         }
         setSavingScoreEntryId(entryId);
@@ -200,7 +201,7 @@ export default function StudentReportPage({ params }) {
             .eq("student_id", studentByEmail.id);
         setSavingScoreEntryId(null);
         if (error) {
-            alert("Unable to save report score: " + error.message);
+            toast.error("Unable to save report score: " + error.message);
             return;
         }
         setProgress((current) => current.map((entry) => entry.id === entryId ? { ...entry, score: parsed } : entry));
@@ -208,10 +209,10 @@ export default function StudentReportPage({ params }) {
             const progressEntry = progress.find((entry) => entry.id === entryId);
             const emailResponse = await sendNotificationEmail(student?.email || "", student?.name || "Student", "score", `Your report score has been updated for "${progressEntry?.title || "Report"}" to ${parsed == null ? "Not given" : `${parsed}/10`}.`);
             setLastSentTime(emailResponse?.lastSentAt || new Date().toISOString());
-            alert("Report score saved and email sent.");
+            toast.success("Report score saved and email sent.");
         }
         catch (emailError) {
-            alert(`Report score saved, but email failed: ${emailError.message}`);
+            toast.error(`Report score saved, but email failed: ${emailError.message}`);
         }
     };
     const handleExport = () => {
@@ -271,105 +272,17 @@ export default function StudentReportPage({ params }) {
         anchor.click();
         URL.revokeObjectURL(url);
     };
-    const handleDownloadMentorshipForm = async () => {
-        if (!student)
-            return;
-        // Fetch student's full profile data for mentorship form
-        const { data: studentProfile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', id)
-            .single();
-        if (!studentProfile) {
-            alert('Unable to fetch student profile data');
-            return;
-        }
-        // Create mentorship form content as text lines
-        const lines = [
-            'MENTORSHIP FORM',
-            '',
-            `Name in full: ${studentProfile.name || 'Not provided'}`,
-            `PRN No.: ${studentProfile.prn || 'Not provided'}`,
-            `Admission date: ${studentProfile.admission_date || 'Not provided'}  Year: ${studentProfile.academic_year || 'Not provided'}`,
-            `Gender: ${studentProfile.gender || 'Not provided'}  Birth date: ${studentProfile.date_of_birth || 'Not provided'}`,
-            `Birth place: ${studentProfile.birth_place || 'Not provided'}  Birth District: ${studentProfile.birth_district || 'Not provided'}`,
-            `Religion: ${studentProfile.religion || 'Not provided'}  Category: ${studentProfile.category || 'Not provided'}`,
-            `Caste/Sub Caste: ${studentProfile.caste_sub_caste || 'Not provided'}  Domicile: ${studentProfile.domicile || 'Not provided'}`,
-            `Blood Group: ${studentProfile.blood_group || 'Not provided'}`,
-            `Seat type: ${studentProfile.seat_type || 'Not provided'}`,
-            '',
-            'ACADEMIC DETAILS',
-            `SSC Marks: ${studentProfile.ssc_marks || 'Not provided'} out of ${studentProfile.ssc_out_of || 'Not provided'}`,
-            `SSC Passing Year: ${studentProfile.ssc_passing_year || 'Not provided'}  SSC Board: ${studentProfile.ssc_board || 'Not provided'}`,
-            `HSC Marks: ${studentProfile.hsc_marks || 'Not provided'} out of ${studentProfile.hsc_out_of || 'Not provided'}`,
-            `HSC Passing Year: ${studentProfile.hsc_passing_year || 'Not provided'}  HSC Board: ${studentProfile.hsc_board || 'Not provided'}`,
-            `Diploma Marks: ${studentProfile.diploma_marks || 'Not provided'} out of ${studentProfile.diploma_out_of || 'Not provided'}`,
-            `Diploma Passing Year: ${studentProfile.diploma_passing_year || 'Not provided'}`,
-            '',
-            'HSC SUBJECT MARKS',
-            `Physics: ${studentProfile.hsc_physics_marks || 'Not provided'}`,
-            `Chemistry: ${studentProfile.hsc_chemistry_marks || 'Not provided'}`,
-            `Mathematics: ${studentProfile.hsc_mathematics_marks || 'Not provided'}`,
-            `Total: ${studentProfile.hsc_total_marks || 'Not provided'} Out of: ${studentProfile.hsc_out_of || 'Not provided'}`,
-            '',
-            'INSTITUTION DETAILS',
-            `Last Institution: ${studentProfile.last_institution_name || 'Not provided'}`,
-            `City: ${studentProfile.city || 'Not provided'}  District: ${studentProfile.district || 'Not provided'}`,
-            `State: ${studentProfile.state || 'Not provided'}`,
-            '',
-            'FAMILY DETAILS',
-            `Parents Income: ${studentProfile.parents_income || 'Not provided'}`,
-            `Free Concession: ${studentProfile.free_concession || 'Not provided'}`,
-            `Number of Children: ${studentProfile.number_of_children || 'Not provided'}`,
-            '',
-            'FATHER DETAILS',
-            `Name: ${studentProfile.father_name || 'Not provided'}`,
-            `Address: ${studentProfile.father_address || 'Not provided'}`,
-            `Office Address: ${studentProfile.father_office_address || 'Not provided'}`,
-            `Designation: ${studentProfile.father_designation || 'Not provided'}`,
-            `Occupation: ${studentProfile.father_occupation || 'Not provided'}`,
-            `Email: ${studentProfile.father_email || 'Not provided'}`,
-            `Mobile: ${studentProfile.father_mobile || 'Not provided'}`,
-            '',
-            'MOTHER DETAILS',
-            `Name: ${studentProfile.mother_name || 'Not provided'}`,
-            `Office Address: ${studentProfile.mother_office_address || 'Not provided'}`,
-            `Designation: ${studentProfile.mother_designation || 'Not provided'}`,
-            `Occupation: ${studentProfile.mother_occupation || 'Not provided'}`,
-            `Email: ${studentProfile.mother_email || 'Not provided'}`,
-            `Mobile: ${studentProfile.mother_mobile || 'Not provided'}`,
-            '',
-            'GUARDIAN DETAILS',
-            `Name: ${studentProfile.local_guardian_name || 'Not provided'}`,
-            `Address: ${studentProfile.local_guardian_address || 'Not provided'}`,
-            `Office Address: ${studentProfile.local_guardian_office_address || 'Not provided'}`,
-            `Designation: ${studentProfile.local_guardian_designation || 'Not provided'}`,
-            `Occupation: ${studentProfile.local_guardian_occupation || 'Not provided'}`,
-            `Email: ${studentProfile.local_guardian_email || 'Not provided'}`,
-            `Mobile: ${studentProfile.local_guardian_mobile || 'Not provided'}`,
-            '',
-            'ADDITIONAL INFORMATION',
-            `Local Residence: ${studentProfile.local_residence || 'Not provided'}`,
-            `Height: ${studentProfile.height || 'Not provided'}  Weight: ${studentProfile.weight || 'Not provided'}`,
-            `Marital Status: ${studentProfile.marital_status || 'Not provided'}`,
-            `Allergy History: ${studentProfile.allergy_history || 'Not provided'}`,
-            '',
-            'SIGNATURES',
-            'Student\'s Name & Signature: _______________________________',
-            'Parent/Guardian\'s Name & Signature: _______________________________',
-        ];
-        const blob = buildPdfBlob(lines);
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `${(studentProfile.prn || 'student-mentorship-form').replace(/\s+/g, '-').toLowerCase()}.pdf`;
-        anchor.click();
-        URL.revokeObjectURL(url);
+
+    const handleDownloadMentorshipForm = () => {
+        if (!student) return;
+        window.open(`/print/mentorship-form/${id}`, '_blank');
     };
+
     if (pageLoading)
         return <p>Loading...</p>;
     if (!student)
         return <p>Student not found.</p>;
+
     return (<div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">

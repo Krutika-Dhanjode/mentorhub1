@@ -1,4 +1,6 @@
 'use client';
+import { toast } from "sonner";
+
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, TrendingUp, Award, FileText, Upload, Paperclip } from 'lucide-react';
 import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts';
@@ -89,7 +91,7 @@ export default function StudentProgressPage() {
                 upsert: false,
             });
             if (uploadError) {
-                alert('File upload failed: ' + uploadError.message);
+                toast.error('File upload failed: ' + uploadError.message);
                 setIsSaving(false);
                 return;
             }
@@ -113,7 +115,7 @@ export default function StudentProgressPage() {
             attachment_names: attachmentName ? [attachmentName] : [],
         });
         if (error) {
-            alert('Error saving progress: ' + error.message);
+            toast.error('Error saving progress: ' + error.message);
             setIsSaving(false);
             return;
         }
