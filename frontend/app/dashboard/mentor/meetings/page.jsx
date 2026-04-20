@@ -16,6 +16,7 @@ export default function MentorMeetingsPage() {
     const [batches, setBatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
+    const [mentorName, setMentorName] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingMeetingId, setEditingMeetingId] = useState(null);
     const [savingMeeting, setSavingMeeting] = useState(false);
@@ -39,6 +40,18 @@ export default function MentorMeetingsPage() {
         const getUser = async () => {
             const { data } = await supabase.auth.getUser();
             setUser(data.user);
+            
+            // Fetch mentor's full name from database
+            if (data.user?.id) {
+                const { data: userData } = await supabase
+                    .from("users")
+                    .select("name")
+                    .eq("id", data.user.id)
+                    .single();
+                if (userData?.name) {
+                    setMentorName(userData.name);
+                }
+            }
         };
         getUser();
     }, []);
@@ -146,7 +159,7 @@ export default function MentorMeetingsPage() {
                                 `Venue: ${meetingVenue || newMeeting.venue || "N/A"}`,
                                 `Agenda: ${newMeeting.agenda || agendaParts.join(" - ") || "N/A"}`,
                             ].join("\n");
-                            const emailResult = await sendNotificationEmail(student.email, student.name || "Student", "meeting", meetingDetails);
+                            const emailResult = await sendNotificationEmail(student.email, student.name || "Student", "meeting", meetingDetails, mentorName);
                             setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
                         }
                         catch (emailError) {

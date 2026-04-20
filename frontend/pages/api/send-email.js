@@ -1,7 +1,5 @@
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,22 +16,32 @@ function getActionLine(actionType) {
   return "You have a new update from your mentor.";
 }
 
-function buildEmailBody({ studentName, actionType, message }) {
+function buildEmailHtml({ studentName, actionType, message, mentorName }) {
   const actionLine = getActionLine(actionType);
   const details =
     message && String(message).trim()
       ? String(message).trim()
       : "Please check your dashboard for details.";
 
-  return `Hello ${studentName},
+  const mentorInfo = mentorName
+    ? `<p style="margin: 5px 0; color: #555;"><strong>Mentor:</strong> ${mentorName}</p>`
+    : "";
 
-${actionLine}
-
-Details:
-${details}
-
-Regards,
-Mentor-Mentee Hub`;
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #007bff; text-align: center;">Mentor Hub Update</h2>
+      <p>Hello <strong>${studentName}</strong>,</p>
+      <p>${actionLine}</p>
+      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 0;"><strong>Details:</strong></p>
+        <p style="margin: 10px 0; white-space: pre-wrap;">${details}</p>
+        ${mentorInfo}
+      </div>
+      <p>Regards,<br>Mentor Hub Team</p>
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="font-size: 12px; color: #777; text-align: center;">You can view more details on your student dashboard.</p>
+    </div>
+  `;
 }
 
 export default async function handler(req, res) {
@@ -42,7 +50,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { studentEmail, studentName, actionType, message } = req.body || {};
+    const { studentEmail, studentName, actionType, message, mentorName } = req.body || {};
 
     if (!studentEmail || !studentEmail.trim()) {
       return res.status(400).json({ error: "studentEmail is required." });
@@ -72,20 +80,16 @@ export default async function handler(req, res) {
       resolvedName = userRow.name || resolvedName;
     }
 
-    const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     const bodyMessage = message && String(message).trim() ? String(message).trim() : "Please check your dashboard for details.";
-    const emailBody = buildEmailBody({
+    const emailHtml = buildEmailHtml({
       studentName: resolvedName,
       actionType,
       message: bodyMessage,
+      mentorName: mentorName || undefined,
     });
 
-    const emailResult = await resend.emails.send({
-      from: fromAddress,
-      to: resolvedEmail,
-      subject: "Update from your Mentor",
-      text: emailBody,
-    });
+    // Send email using SMTP (Nodemailer) - Non-blocking
+    sendEmail(resolvedEmail, "Update from your Mentor", emailHtml);
 
     if (supabaseAdmin) {
       const baseNotification = {
@@ -108,7 +112,6 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      id: emailResult?.data?.id || null,
       studentEmail: resolvedEmail,
       studentName: resolvedName,
       actionType,
@@ -118,3 +121,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error?.message || "Failed to send email." });
   }
 }
+

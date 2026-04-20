@@ -1,4 +1,4 @@
-export async function sendNotificationEmail(studentEmail, studentName, actionType, message) {
+export async function sendNotificationEmail(studentEmail, studentName, actionType, message, mentorName) {
   if (!studentEmail || !studentEmail.trim()) {
     throw new Error("Student email is required to send notification.");
   }
@@ -13,6 +13,7 @@ export async function sendNotificationEmail(studentEmail, studentName, actionTyp
       studentName: studentName || "Student",
       actionType,
       message,
+      mentorName: mentorName || undefined,
     }),
   });
 

@@ -247,6 +247,18 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             return;
         }
         try {
+            // Get mentor's full name from user data
+            let mentorName = user?.user_metadata?.name || user?.name || 'Mentor';
+            if (!mentorName || mentorName === user?.email) {
+                // Fetch from database if not available
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('name')
+                    .eq('id', user.id)
+                    .single();
+                mentorName = userData?.name || 'Mentor';
+            }
+
             await fetch('/api/send-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -254,7 +266,8 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     studentEmail: existingUser.email,
                     studentName: existingUser.name,
                     actionType: 'batch_allocation',
-                    message: `You have been allocated to the batch: ${selectedBatch.name}`
+                    message: `You have been allocated to the batch: ${selectedBatch.name}`,
+                    mentorName: mentorName,
                 })
             });
         } catch (emailErr) {

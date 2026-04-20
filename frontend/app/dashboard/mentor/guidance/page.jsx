@@ -198,7 +198,24 @@ export default function MentorGuidancePage() {
             return;
         }
         try {
-            const emailResult = await sendNotificationEmail(selectedThread?.email || "", selectedThread?.name || "Student", "guidance", draft.trim());
+            // Get mentor's full name
+            let mentorName = user?.user_metadata?.name || user?.name || "Mentor";
+            if (!mentorName || mentorName === user?.email) {
+                const { data: userData } = await supabase
+                    .from("users")
+                    .select("name")
+                    .eq("id", user.id)
+                    .single();
+                mentorName = userData?.name || "Mentor";
+            }
+            
+            const emailResult = await sendNotificationEmail(
+                selectedThread?.email || "", 
+                selectedThread?.name || "Student", 
+                "guidance", 
+                draft.trim(),
+                mentorName
+            );
             setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
         }
         catch (emailError) {

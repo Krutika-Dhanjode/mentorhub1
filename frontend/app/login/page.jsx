@@ -38,7 +38,7 @@ export default function LoginPage() {
       setIsLoading(true);
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
@@ -87,7 +87,7 @@ export default function LoginPage() {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes("failed to fetch")) {
         alert(
-          "Unable to reach Supabase right now. Check internet, Vercel env vars (NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY), and ensure the Supabase project is active."
+          "Unable to reach Supabase right now. Check internet, Vercel env vars, and ensure the project is active."
         );
       } else {
         alert(message || "Unable to sign in right now.");
@@ -158,21 +158,21 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-2"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff /> : <Eye />}
+                  {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                 </button>
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading || !selectedRole}>
-              {isLoading ? "Signing in..." : "Sign In"}
+            <Button type="submit" className="w-full h-10 font-semibold" disabled={isLoading || !selectedRole}>
+              {isLoading ? "Processing..." : "Sign In"}
             </Button>
           </form>
 
           <p className="text-center mt-4 text-sm">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary">
+            <Link href="/signup" className="text-primary hover:underline">
               Sign up
             </Link>
           </p>
