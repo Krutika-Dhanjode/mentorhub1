@@ -163,8 +163,12 @@ export function AppNavbar({ title = 'Dashboard' }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded-lg transition-colors duration-200">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-foreground"/>
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center overflow-hidden">
+                {user?.photoUrl ? (
+                  <Image src={user.photoUrl} alt="Avatar" width={32} height={32} className="h-full w-full object-cover" unoptimized />
+                ) : (
+                  <User className="w-4 h-4 text-primary-foreground"/>
+                )}
               </div>
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-semibold text-foreground leading-none">{displayName}</span>
@@ -177,8 +181,12 @@ export function AppNavbar({ title = 'Dashboard' }) {
             <DropdownMenuLabel>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-primary-foreground"/>
+                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {user?.photoUrl ? (
+                      <Image src={user.photoUrl} alt="Avatar" width={40} height={40} className="h-full w-full object-cover" unoptimized />
+                    ) : (
+                      <User className="w-5 h-5 text-primary-foreground"/>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1">
                     <p className="text-sm font-semibold">{displayName}</p>

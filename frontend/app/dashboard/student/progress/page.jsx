@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
+
 export default function StudentProgressPage() {
     const { user, loading } = useUser();
     const supabase = createClient();
@@ -31,9 +32,9 @@ export default function StudentProgressPage() {
         description: '',
         value: '',
     });
+
     const fetchProgress = async () => {
-        if (!user)
-            return;
+        if (!user) return;
         setDataLoading(true);
         const { data: studentProfile } = await supabase
             .from('users')
@@ -66,15 +67,18 @@ export default function StudentProgressPage() {
         setProgress(formattedEntries);
         setDataLoading(false);
     };
+
     useEffect(() => {
         if (!loading && user) {
             fetchProgress();
         }
     }, [loading, user]);
+
     const handleFileChange = (event) => {
         const file = event.target.files?.[0] || null;
         setSelectedFile(file);
     };
+
     const handleAddProgress = async () => {
         if (!user || !newEntry.type || !newEntry.title || !newEntry.description)
             return;
@@ -125,6 +129,7 @@ export default function StudentProgressPage() {
         setIsSaving(false);
         await fetchProgress();
     };
+
     const getTypeIcon = (type) => {
         switch (type) {
             case 'marks':
@@ -135,6 +140,7 @@ export default function StudentProgressPage() {
                 return <FileText className="w-5 h-5"/>;
         }
     };
+
     const getTypeColor = (type) => {
         switch (type) {
             case 'marks':
@@ -145,9 +151,11 @@ export default function StudentProgressPage() {
                 return 'bg-secondary text-foreground';
         }
     };
+
     const marksCount = useMemo(() => progress.filter((entry) => entry.entryType === 'marks').length, [progress]);
     const skillsCount = useMemo(() => progress.filter((entry) => entry.entryType === 'skill').length, [progress]);
     const reportsCount = useMemo(() => progress.filter((entry) => entry.entryType === 'report').length, [progress]);
+    
     const marksChartData = useMemo(() => {
         return [...progress]
             .filter((entry) => entry.entryType === 'marks' && entry.numericValue != null)
@@ -161,10 +169,13 @@ export default function StudentProgressPage() {
             score: entry.numericValue,
         }));
     }, [progress]);
+
     const hasMarksTrend = marksChartData.length > 0;
+
     if (loading || dataLoading) {
-        return <p className="text-sm text-muted-foreground">Loading your progress...</p>;
+        return <p className="text-sm text-muted-foreground p-6">Loading your progress...</p>;
     }
+
     return (<div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -303,9 +314,12 @@ export default function StudentProgressPage() {
           </Badge>
         </div>
 
-        {!hasMarksTrend ? (<div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+        {!hasMarksTrend ? (
+          <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
             Add a marks/CGPA entry to start a clean trend line graph.
-          </div>) : (<ChartContainer className="h-72 w-full" config={{
+          </div>
+        ) : (
+          <ChartContainer className="h-72 w-full" config={{
                 score: {
                     label: 'Marks / CGPA',
                     color: 'hsl(var(--primary))',
@@ -319,23 +333,10 @@ export default function StudentProgressPage() {
                     `${value}`,
                     'Marks / CGPA',
                 ]}/>}/>
-              <Bar dataKey="score" fill="#3b82f6" radius={[8, 8, 0, 0]} animationDuration={700} barSize={32}/>
+              <Bar dataKey="score" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} animationDuration={700} barSize={32}/>
             </BarChart>
-          </ChartContainer>)}
-      </Card>
-
-      <Card className="border-border bg-secondary/20 p-5">
-        <div className="flex items-start gap-4">
-          <div className="rounded-lg bg-primary/10 p-3">
-            <Upload className="h-5 w-5 text-primary"/>
-          </div>
-          <div className="space-y-1">
-            <p className="font-medium text-foreground">Your uploads are stored with your progress history.</p>
-            <p className="text-sm text-muted-foreground">
-              Add certificates, reports, or supporting documents while creating a progress entry.
-            </p>
-          </div>
-        </div>
+          </ChartContainer>
+        )}
       </Card>
 
       <Card className="border-border">
