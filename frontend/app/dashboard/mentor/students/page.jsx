@@ -4,8 +4,9 @@ import MentorStudentsContent from './MentorStudentsContent';
 
 export const dynamic = 'force-dynamic';
 
-export default function MentorStudentsPage({ searchParams }) {
-  const queryValue = searchParams?.q;
+export default async function MentorStudentsPage({ searchParams }) {
+  const params = await searchParams;
+  const queryValue = params?.q;
   const initialSearch = Array.isArray(queryValue) ? queryValue[0] || '' : queryValue || '';
 
   return (

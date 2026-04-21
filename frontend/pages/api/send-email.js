@@ -11,6 +11,7 @@ const supabaseAdmin =
 function getActionLine(actionType) {
   if (actionType === "batch_allocation") return "You have been successfully added to a Mentor batch.";
   if (actionType === "meeting") return "A meeting has been scheduled.";
+  if (actionType === "meeting_cancelled") return "A previously scheduled meeting has been cancelled.";
   if (actionType === "score") return "Your score has been updated.";
   if (actionType === "guidance") return "New guidance has been provided.";
   return "You have a new update from your mentor.";
@@ -55,8 +56,8 @@ export default async function handler(req, res) {
     if (!studentEmail || !studentEmail.trim()) {
       return res.status(400).json({ error: "studentEmail is required." });
     }
-    if (!actionType || !["meeting", "score", "guidance", "batch_allocation"].includes(actionType)) {
-      return res.status(400).json({ error: "actionType must be meeting, score, guidance, or batch_allocation." });
+    if (!actionType || !["meeting", "meeting_cancelled", "score", "guidance", "batch_allocation"].includes(actionType)) {
+      return res.status(400).json({ error: "actionType must be meeting, meeting_cancelled, score, guidance, or batch_allocation." });
     }
 
     let resolvedName = studentName || "Student";
@@ -121,4 +122,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error?.message || "Failed to send email." });
   }
 }
-

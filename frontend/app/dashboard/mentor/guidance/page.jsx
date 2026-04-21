@@ -2,11 +2,12 @@
 import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Paperclip, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useUser } from "@/hooks/use-user";
 import { createClient } from "@/lib/supabase/client";
 import { sendNotificationEmail } from "@/lib/send-notification-email";
@@ -17,6 +18,7 @@ export default function MentorGuidancePage() {
     const [selectedStudentId, setSelectedStudentId] = useState("");
     const [messages, setMessages] = useState([]);
     const [draft, setDraft] = useState("");
+    const [selectedFile, setSelectedFile] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [lastSentTime, setLastSentTime] = useState("");
@@ -136,7 +138,7 @@ export default function MentorGuidancePage() {
         }
         const { data, error } = await supabase
             .from("guidance_messages")
-            .select("id, message, sender_role, created_at")
+            .select("id, message, sender_role, created_at, attachment_url, attachment_name, attachment_type")
             .eq("mentor_id", user.id)
             .eq("student_id", studentId)
             .order("created_at", { ascending: true });
@@ -149,6 +151,9 @@ export default function MentorGuidancePage() {
             message: message.message,
             senderRole: message.sender_role,
             createdAt: message.created_at,
+            attachmentUrl: message.attachment_url || "",
+            attachmentName: message.attachment_name || "",
+            attachmentType: message.attachment_type || "",
         })));
     };
     useEffect(() => {
@@ -183,14 +188,54 @@ export default function MentorGuidancePage() {
         };
     }, [user?.id, selectedStudentId]);
     const handleReply = async () => {
-        if (!user || !selectedStudentId || !draft.trim())
+        if (!user || !selectedStudentId || (!draft.trim() && !selectedFile))
             return;
         setSending(true);
+        let attachmentUrl = "";
+        let attachmentName = "";
+        let attachmentType = "";
+        let attachmentPath = "";
+        if (selectedFile) {
+            const validType = selectedFile.type === "application/pdf" || selectedFile.type.startsWith("image/");
+            if (!validType) {
+                setSending(false);
+                toast.error("Only PDF and image files are allowed.");
+                return;
+            }
+            if (selectedFile.size > 8 * 1024 * 1024) {
+                setSending(false);
+                toast.error("File size must be 8MB or less.");
+                return;
+            }
+            const sanitizedFileName = selectedFile.name.replace(/\s+/g, "-");
+            attachmentPath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
+            const { error: uploadError } = await supabase
+                .storage
+                .from("guidance-attachments")
+                .upload(attachmentPath, selectedFile, { upsert: false });
+            if (uploadError) {
+                setSending(false);
+                toast.error("Unable to upload attachment: " + uploadError.message);
+                return;
+            }
+            const { data: publicUrlData } = supabase
+                .storage
+                .from("guidance-attachments")
+                .getPublicUrl(attachmentPath);
+            attachmentUrl = publicUrlData?.publicUrl || "";
+            attachmentName = selectedFile.name;
+            attachmentType = selectedFile.type || "";
+        }
+        const messageText = draft.trim() || "Shared a reference attachment.";
         const { error } = await supabase.from("guidance_messages").insert({
             student_id: selectedStudentId,
             mentor_id: user.id,
             sender_role: "mentor",
-            message: draft.trim(),
+            message: messageText,
+            attachment_url: attachmentUrl || null,
+            attachment_name: attachmentName || null,
+            attachment_type: attachmentType || null,
+            attachment_path: attachmentPath || null,
         });
         setSending(false);
         if (error) {
@@ -213,7 +258,9 @@ export default function MentorGuidancePage() {
                 selectedThread?.email || "", 
                 selectedThread?.name || "Student", 
                 "guidance", 
-                draft.trim(),
+                attachmentUrl
+                    ? `${messageText}\nReference: ${attachmentName || "Attachment"}\n${attachmentUrl}`
+                    : messageText,
                 mentorName
             );
             setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
@@ -222,6 +269,7 @@ export default function MentorGuidancePage() {
             toast.error(`Guidance saved, but email failed: ${emailError.message}`);
         }
         setDraft("");
+        setSelectedFile(null);
         await fetchThreads();
         await fetchMessages(selectedStudentId);
     };
@@ -293,6 +341,14 @@ export default function MentorGuidancePage() {
                 ? "ml-auto bg-primary text-primary-foreground"
                 : "bg-muted text-foreground"}`}>
                   <p className="whitespace-pre-wrap text-sm">{message.message}</p>
+                  {message.attachmentUrl && (<div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2">
+                      {message.attachmentType?.startsWith("image/") ? (<a href={message.attachmentUrl} target="_blank" rel="noreferrer" className="block">
+                          <img src={message.attachmentUrl} alt={message.attachmentName || "Guidance attachment"} className="max-h-52 rounded-md object-contain"/>
+                        </a>) : (<a href={message.attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm underline">
+                          <Paperclip className="h-4 w-4"/>
+                          {message.attachmentName || "Open attachment"}
+                        </a>)}
+                    </div>)}
                   <p className={`mt-2 text-[11px] ${message.senderRole === "mentor"
                 ? "text-primary-foreground/80"
                 : "text-muted-foreground"}`}>
@@ -303,8 +359,14 @@ export default function MentorGuidancePage() {
 
           <div className="border-t pt-4">
             <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Write your guidance reply..." className="min-h-28"/>
+            <div className="mt-3 space-y-2">
+              <Input type="file" accept="application/pdf,image/*" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}/>
+              <p className="text-xs text-muted-foreground">
+                {selectedFile ? `Selected: ${selectedFile.name}` : "Attach a PDF or image (optional, max 8MB)."}
+              </p>
+            </div>
             <div className="mt-3 flex justify-end">
-              <Button onClick={handleReply} disabled={sending || !selectedStudentId || !draft.trim()}>
+              <Button onClick={handleReply} disabled={sending || !selectedStudentId || (!draft.trim() && !selectedFile)}>
                 <Send className="mr-2 h-4 w-4"/>
                 {sending ? "Sending..." : "Send Reply"}
               </Button>

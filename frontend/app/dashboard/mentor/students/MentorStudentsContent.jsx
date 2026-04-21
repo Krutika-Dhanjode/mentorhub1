@@ -1,9 +1,9 @@
 'use client';
 import { toast } from "sonner";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, BarChart3, Edit, Calendar } from 'lucide-react';
+import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, Upload, BarChart3, Edit, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
     const [deletingBatchId, setDeletingBatchId] = useState(null);
     const [removingStudentId, setRemovingStudentId] = useState(null);
     const [exporting, setExporting] = useState(false);
+    const [importingReport, setImportingReport] = useState(false);
     const [reportBatchId, setReportBatchId] = useState('all');
     const [isComparisonOpen, setIsComparisonOpen] = useState(false);
     const [comparisonBatchId, setComparisonBatchId] = useState('');
@@ -38,6 +39,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
     const [editEndDate, setEditEndDate] = useState('');
     const [editStatus, setEditStatus] = useState('Good Standing');
     const [missingMigration, setMissingMigration] = useState(false);
+    const reportFileInputRef = useRef(null);
     const comparisonBarColors = ['#ff2d55', '#9acd32', '#1ea7d5', '#f4ce14', '#ff7a00', '#7c4dff', '#00c2a8'];
     // New student form
     const [newStudent, setNewStudent] = useState({
@@ -410,6 +412,317 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         const text = String(value).replace(/"/g, '""');
         return `"${text}"`;
     };
+    const normalizeImportValue = (value) => {
+        if (value === null || value === undefined)
+            return '';
+        return String(value).trim().replace(/^'+/, '').trim();
+    };
+    const parseCsvText = (text) => {
+        const rows = [];
+        let row = [];
+        let value = '';
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i += 1) {
+            const char = text[i];
+            if (char === '"') {
+                if (inQuotes && text[i + 1] === '"') {
+                    value += '"';
+                    i += 1;
+                }
+                else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+            if (char === ',' && !inQuotes) {
+                row.push(value);
+                value = '';
+                continue;
+            }
+            if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (char === '\r' && text[i + 1] === '\n') {
+                    i += 1;
+                }
+                row.push(value);
+                const hasContent = row.some((cell) => String(cell || '').trim().length > 0);
+                if (hasContent) {
+                    rows.push(row);
+                }
+                row = [];
+                value = '';
+                continue;
+            }
+            value += char;
+        }
+        row.push(value);
+        if (row.some((cell) => String(cell || '').trim().length > 0)) {
+            rows.push(row);
+        }
+        return rows;
+    };
+    const parseDateForImport = (rawValue) => {
+        const text = normalizeImportValue(rawValue);
+        if (!text)
+            return { provided: false, value: null };
+        const lowered = text.toLowerCase();
+        if (['n/a', 'na', '-', 'null', 'none'].includes(lowered)) {
+            return { provided: true, value: null };
+        }
+        const normalized = text.replace(/\./g, '/').replace(/\\/g, '/');
+        const yyyyMmDdMatch = normalized.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+        if (yyyyMmDdMatch) {
+            const [, year, month, day] = yyyyMmDdMatch;
+            return { provided: true, value: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+        }
+        const ddMmYyyyMatch = normalized.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+        if (ddMmYyyyMatch) {
+            const [, day, month, year] = ddMmYyyyMatch;
+            return { provided: true, value: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+        }
+        const parsed = new Date(text);
+        if (!Number.isNaN(parsed.getTime())) {
+            const year = parsed.getFullYear();
+            const month = String(parsed.getMonth() + 1).padStart(2, '0');
+            const day = String(parsed.getDate()).padStart(2, '0');
+            return { provided: true, value: `${year}-${month}-${day}` };
+        }
+        return { provided: false, value: null };
+    };
+    const parseNumberForImport = (rawValue) => {
+        const text = normalizeImportValue(rawValue);
+        if (!text)
+            return { provided: false, value: null };
+        const lowered = text.toLowerCase();
+        if (['n/a', 'na', '-', 'null', 'none'].includes(lowered)) {
+            return { provided: true, value: null };
+        }
+        const parsed = Number(text);
+        if (Number.isNaN(parsed)) {
+            return { provided: false, value: null };
+        }
+        return { provided: true, value: parsed };
+    };
+    const handleImportUpdatedReport = async (event) => {
+        if (!user)
+            return;
+        const file = event.target.files?.[0];
+        if (!file)
+            return;
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            toast.error('Please upload the edited report as a CSV file.');
+            event.target.value = '';
+            return;
+        }
+        setImportingReport(true);
+        try {
+            const csvText = await file.text();
+            const parsedRows = parseCsvText(csvText);
+            if (parsedRows.length < 2) {
+                toast.error('The uploaded report is empty.');
+                return;
+            }
+            const headers = parsedRows[0].map((header) => normalizeImportValue(header).toLowerCase());
+            const headerIndex = (name) => headers.findIndex((header) => header === name.toLowerCase());
+            const idxName = headerIndex('name');
+            const idxPrn = headerIndex('prn');
+            const idxBatchName = headerIndex('batch name');
+            const idxEmail = headerIndex('email');
+            const idxReportScore = headerIndex('report score');
+            const idxCgpa = headerIndex('cgpa');
+            const idxJoiningDate = headerIndex('joining date in batch');
+            const idxEndingDate = headerIndex('ending date in batch');
+            if (idxPrn === -1 && idxEmail === -1 && idxName === -1) {
+                toast.error('Report must include at least one identifier column: PRN, Email, or Name.');
+                return;
+            }
+            const { data: mentorBatches, error: batchError } = await supabase
+                .from('batches')
+                .select('id, name')
+                .eq('mentor_id', user.id);
+            if (batchError) {
+                toast.error('Unable to read mentor batches: ' + batchError.message);
+                return;
+            }
+            const batchIds = (mentorBatches || []).map((batch) => batch.id);
+            if (batchIds.length === 0) {
+                toast.error('No mentor batches found.');
+                return;
+            }
+            const { data: assignments, error: assignmentError } = await supabase
+                .from('batch_students')
+                .select('id, batch_id, student_id, start_date, end_date')
+                .in('batch_id', batchIds);
+            if (assignmentError) {
+                toast.error('Unable to read batch assignments: ' + assignmentError.message);
+                return;
+            }
+            const studentIds = Array.from(new Set((assignments || []).map((row) => row.student_id).filter(Boolean)));
+            const { data: studentRows, error: studentError } = await supabase
+                .from('users')
+                .select('id, name, email, prn, cgpa')
+                .in('id', studentIds);
+            if (studentError) {
+                toast.error('Unable to read student records: ' + studentError.message);
+                return;
+            }
+            const { data: reportRows } = await supabase
+                .from('progress')
+                .select('id, student_id, score, created_at')
+                .in('student_id', studentIds)
+                .eq('entry_type', 'report')
+                .order('created_at', { ascending: false });
+            const batchNameById = new Map((mentorBatches || []).map((batch) => [batch.id, batch.name || '']));
+            const studentById = new Map((studentRows || []).map((row) => [row.id, row]));
+            const studentIdByPrn = new Map((studentRows || [])
+                .filter((row) => normalizeImportValue(row.prn))
+                .map((row) => [normalizeImportValue(row.prn).toLowerCase(), row.id]));
+            const studentIdByEmail = new Map((studentRows || [])
+                .filter((row) => normalizeImportValue(row.email))
+                .map((row) => [normalizeImportValue(row.email).toLowerCase(), row.id]));
+            const assignmentsByStudent = new Map();
+            (assignments || []).forEach((assignment) => {
+                if (!assignmentsByStudent.has(assignment.student_id)) {
+                    assignmentsByStudent.set(assignment.student_id, []);
+                }
+                assignmentsByStudent.get(assignment.student_id)?.push(assignment);
+            });
+            const latestReportByStudent = new Map();
+            (reportRows || []).forEach((row) => {
+                if (!latestReportByStudent.has(row.student_id)) {
+                    latestReportByStudent.set(row.student_id, row);
+                }
+            });
+            let matchedRows = 0;
+            let updatedUsers = 0;
+            let updatedAssignments = 0;
+            let updatedScores = 0;
+            let skippedRows = 0;
+            for (let rowIndex = 1; rowIndex < parsedRows.length; rowIndex += 1) {
+                const row = parsedRows[rowIndex];
+                const getCell = (index) => (index >= 0 ? row[index] : '');
+                const importedPrn = normalizeImportValue(getCell(idxPrn));
+                const importedEmail = normalizeImportValue(getCell(idxEmail)).toLowerCase();
+                const importedName = normalizeImportValue(getCell(idxName));
+                const importedBatchName = normalizeImportValue(getCell(idxBatchName));
+                let studentId = '';
+                if (importedPrn && studentIdByPrn.has(importedPrn.toLowerCase())) {
+                    studentId = studentIdByPrn.get(importedPrn.toLowerCase()) || '';
+                }
+                else if (importedEmail && studentIdByEmail.has(importedEmail)) {
+                    studentId = studentIdByEmail.get(importedEmail) || '';
+                }
+                else if (importedName) {
+                    const byName = (studentRows || []).find((candidate) => normalizeImportValue(candidate.name).toLowerCase() === importedName.toLowerCase());
+                    studentId = byName?.id || '';
+                }
+                if (!studentId) {
+                    skippedRows += 1;
+                    continue;
+                }
+                const currentStudent = studentById.get(studentId);
+                if (!currentStudent) {
+                    skippedRows += 1;
+                    continue;
+                }
+                const studentAssignments = assignmentsByStudent.get(studentId) || [];
+                const targetAssignment = importedBatchName
+                    ? studentAssignments.find((assignment) => normalizeImportValue(batchNameById.get(assignment.batch_id)).toLowerCase() === importedBatchName.toLowerCase())
+                    : studentAssignments[0];
+                const userPatch = {};
+                if (idxName >= 0 && importedName && importedName !== normalizeImportValue(currentStudent.name)) {
+                    userPatch.name = importedName;
+                }
+                if (idxPrn >= 0 && importedPrn && importedPrn !== normalizeImportValue(currentStudent.prn)) {
+                    userPatch.prn = importedPrn;
+                }
+                if (idxEmail >= 0 && importedEmail && importedEmail !== normalizeImportValue(currentStudent.email).toLowerCase()) {
+                    userPatch.email = importedEmail;
+                }
+                if (idxCgpa >= 0) {
+                    const parsedCgpa = parseNumberForImport(getCell(idxCgpa));
+                    if (parsedCgpa.provided && parsedCgpa.value !== null && Number(currentStudent.cgpa) !== Number(parsedCgpa.value)) {
+                        userPatch.cgpa = parsedCgpa.value;
+                    }
+                }
+                if (Object.keys(userPatch).length > 0) {
+                    const { error: userUpdateError } = await supabase
+                        .from('users')
+                        .update(userPatch)
+                        .eq('id', studentId);
+                    if (!userUpdateError) {
+                        updatedUsers += 1;
+                    }
+                }
+                if (targetAssignment) {
+                    const startDateParsed = idxJoiningDate >= 0 ? parseDateForImport(getCell(idxJoiningDate)) : { provided: false, value: null };
+                    const endDateParsed = idxEndingDate >= 0 ? parseDateForImport(getCell(idxEndingDate)) : { provided: false, value: null };
+                    const assignmentPatch = {};
+                    if (startDateParsed.provided) {
+                        assignmentPatch.start_date = startDateParsed.value;
+                    }
+                    if (endDateParsed.provided) {
+                        assignmentPatch.end_date = endDateParsed.value;
+                    }
+                    if (Object.keys(assignmentPatch).length > 0) {
+                        const { error: assignmentUpdateError } = await supabase
+                            .from('batch_students')
+                            .update(assignmentPatch)
+                            .eq('student_id', studentId)
+                            .eq('batch_id', targetAssignment.batch_id);
+                        if (!assignmentUpdateError) {
+                            updatedAssignments += 1;
+                        }
+                    }
+                }
+                if (idxReportScore >= 0) {
+                    const parsedScore = parseNumberForImport(getCell(idxReportScore));
+                    if (parsedScore.provided && parsedScore.value !== null) {
+                        const existingReport = latestReportByStudent.get(studentId);
+                        if (existingReport) {
+                            const { error: scoreUpdateError } = await supabase
+                                .from('progress')
+                                .update({
+                                score: parsedScore.value,
+                                value_text: String(parsedScore.value),
+                            })
+                                .eq('id', existingReport.id);
+                            if (!scoreUpdateError) {
+                                updatedScores += 1;
+                            }
+                        }
+                        else {
+                            const { data: insertedRow, error: insertScoreError } = await supabase
+                                .from('progress')
+                                .insert({
+                                student_id: studentId,
+                                entry_type: 'report',
+                                title: 'Imported Report Score',
+                                description: 'Updated via uploaded Excel report',
+                                score: parsedScore.value,
+                                value_text: String(parsedScore.value),
+                            })
+                                .select('id, student_id, score, created_at')
+                                .single();
+                            if (!insertScoreError && insertedRow) {
+                                latestReportByStudent.set(studentId, insertedRow);
+                                updatedScores += 1;
+                            }
+                        }
+                    }
+                }
+                matchedRows += 1;
+            }
+            await fetchData();
+            toast.success(`Import complete. Matched: ${matchedRows}, Users updated: ${updatedUsers}, Batch dates updated: ${updatedAssignments}, Report scores updated: ${updatedScores}, Skipped: ${skippedRows}.`);
+        }
+        catch (error) {
+            toast.error(`Unable to import updated report: ${error?.message || 'Unknown error'}`);
+        }
+        finally {
+            setImportingReport(false);
+            event.target.value = '';
+        }
+    };
     const handleDownloadProgressExcel = async (targetBatchId = null) => {
         if (!user)
             return;
@@ -435,7 +748,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             }
             const { data: assignments, error: assignmentError } = await supabase
                 .from('batch_students')
-                .select('batch_id, student_id')
+                .select('batch_id, student_id, start_date, end_date')
                 .in('batch_id', batchIds);
             if (assignmentError) {
                 toast.error('Unable to fetch batch assignments: ' + assignmentError.message);
@@ -448,116 +761,120 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             }
             const { data: studentRows, error: studentError } = await supabase
                 .from('users')
-                .select('id, name, email, prn')
-                .in('id', uniqueStudentIds)
-                .eq('role', 'student');
+                .select('id, name, email, prn, cgpa')
+                .in('id', uniqueStudentIds);
             if (studentError) {
                 toast.error('Unable to fetch student details: ' + studentError.message);
                 return;
             }
             const { data: progressRows, error: progressError } = await supabase
                 .from('progress')
-                .select('student_id, entry_type, title, description, score, value_text, created_at')
-                .in('student_id', uniqueStudentIds)
-                .order('created_at', { ascending: false });
+                .select('student_id, entry_type, score, created_at')
+                .in('student_id', uniqueStudentIds);
             if (progressError) {
                 toast.error('Unable to fetch student progress data: ' + progressError.message);
                 return;
             }
+            const { data: meetingsData, error: meetingsError } = await supabase
+                .from('meetings')
+                .select('id, batch_id')
+                .in('batch_id', batchIds);
+            if (meetingsError) {
+                toast.error('Unable to fetch meetings data: ' + meetingsError.message);
+                return;
+            }
+            const meetingIds = (meetingsData || []).map((meeting) => meeting.id).filter(Boolean);
+            let attendanceRows = [];
+            if (meetingIds.length > 0) {
+                const { data: fetchedAttendanceRows, error: attendanceError } = await supabase
+                    .from('meeting_attendance')
+                    .select('student_id, meeting_id, present')
+                    .in('student_id', uniqueStudentIds)
+                    .in('meeting_id', meetingIds);
+                if (attendanceError) {
+                    toast.error('Unable to fetch attendance data: ' + attendanceError.message);
+                    return;
+                }
+                attendanceRows = fetchedAttendanceRows || [];
+            }
             const batchNameById = new Map(scopedBatches.map((batch) => [batch.id, batch.name]));
-            const batchNamesByStudent = new Map();
-            const progressSummaryByStudent = new Map();
-            (assignments || []).forEach((entry) => {
-                const studentId = entry.student_id;
-                const batchName = batchNameById.get(entry.batch_id);
-                if (!studentId || !batchName)
-                    return;
-                if (!batchNamesByStudent.has(studentId)) {
-                    batchNamesByStudent.set(studentId, []);
-                }
-                const current = batchNamesByStudent.get(studentId) || [];
-                if (!current.includes(batchName)) {
-                    current.push(batchName);
-                }
-                batchNamesByStudent.set(studentId, current);
-            });
+            const studentById = new Map((studentRows || []).map((student) => [student.id, student]));
+            const progressCountByStudent = new Map();
+            const latestReportScoreByStudent = new Map();
             (progressRows || []).forEach((entry) => {
-                const studentId = entry.student_id;
-                if (!studentId)
-                    return;
-                const existing = progressSummaryByStudent.get(studentId) || {
-                    totalEntries: 0,
-                    marksEntries: 0,
-                    skillEntries: 0,
-                    reportEntries: 0,
-                    latestReportScore: 'N/A',
-                    reportScoreTotal: 0,
-                    reportScoreCount: 0,
-                    latestType: 'N/A',
-                    latestTitle: 'N/A',
-                    latestValue: 'N/A',
-                    latestDescription: 'N/A',
-                    latestDate: 'N/A',
-                };
-                existing.totalEntries += 1;
-                if (entry.entry_type === 'marks')
-                    existing.marksEntries += 1;
-                if (entry.entry_type === 'skill')
-                    existing.skillEntries += 1;
-                if (entry.entry_type === 'report')
-                    existing.reportEntries += 1;
+                const currentCount = progressCountByStudent.get(entry.student_id) || 0;
+                progressCountByStudent.set(entry.student_id, currentCount + 1);
                 if (entry.entry_type === 'report' && entry.score !== null && entry.score !== undefined && !Number.isNaN(Number(entry.score))) {
-                    existing.latestReportScore = String(entry.score);
-                    existing.reportScoreTotal += Number(entry.score);
-                    existing.reportScoreCount += 1;
+                    const current = latestReportScoreByStudent.get(entry.student_id);
+                    const currentTime = current?.createdAt ? new Date(current.createdAt).getTime() : -1;
+                    const nextTime = entry.created_at ? new Date(entry.created_at).getTime() : 0;
+                    if (!current || nextTime >= currentTime) {
+                        latestReportScoreByStudent.set(entry.student_id, {
+                            score: Number(entry.score),
+                            createdAt: entry.created_at,
+                        });
+                    }
                 }
-                if (existing.latestDate === 'N/A') {
-                    existing.latestType = entry.entry_type || 'N/A';
-                    existing.latestTitle = entry.title || 'N/A';
-                    existing.latestValue = entry.value_text || (entry.score != null ? String(entry.score) : 'N/A');
-                    existing.latestDescription = entry.description || 'N/A';
-                    existing.latestDate = entry.created_at ? new Date(entry.created_at).toLocaleDateString() : 'N/A';
-                }
-                progressSummaryByStudent.set(studentId, existing);
+            });
+            const meetingToBatchId = new Map((meetingsData || []).map((meeting) => [meeting.id, meeting.batch_id]));
+            const attendanceByStudentBatch = new Map();
+            (attendanceRows || []).forEach((row) => {
+                if (!row.present)
+                    return;
+                const batchId = meetingToBatchId.get(row.meeting_id);
+                if (!batchId || !row.student_id)
+                    return;
+                const key = `${row.student_id}::${batchId}`;
+                const currentCount = attendanceByStudentBatch.get(key) || 0;
+                attendanceByStudentBatch.set(key, currentCount + 1);
             });
             const columns = [
                 { key: 'name', label: 'Name' },
                 { key: 'prn', label: 'PRN' },
+                { key: 'batch_name', label: 'Batch Name' },
                 { key: 'email', label: 'Email' },
-                { key: 'batch_names', label: 'Batch' },
-                { key: 'total_entries', label: 'Total Progress Entries' },
-                { key: 'marks_entries', label: 'Marks Entries' },
-                { key: 'skill_entries', label: 'Skill Entries' },
-                { key: 'report_entries', label: 'Report Entries' },
-                { key: 'latest_report_score', label: 'Latest Report Score' },
-                { key: 'avg_report_score', label: 'Average Report Score' },
-                { key: 'latest_type', label: 'Latest Entry Type' },
-                { key: 'latest_title', label: 'Latest Entry Title' },
-                { key: 'latest_value', label: 'Latest Entry Value' },
-                { key: 'latest_description', label: 'Latest Entry Description' },
-                { key: 'latest_date', label: 'Latest Entry Date' },
+                { key: 'meetings_attended', label: 'Meetings Attended' },
+                { key: 'progress_count', label: 'No of Progress Added' },
+                { key: 'report_score', label: 'Report Score' },
+                { key: 'cgpa', label: 'CGPA' },
+                { key: 'joining_date', label: 'Joining Date in Batch' },
+                { key: 'ending_date', label: 'Ending Date in Batch' },
             ];
             const header = columns.map((column) => csvEscape(column.label)).join(',');
-            const rows = (studentRows || []).map((student) => {
-                const summary = progressSummaryByStudent.get(student.id);
+            const formatDateForExport = (value) => {
+                if (!value)
+                    return 'N/A';
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return String(value);
+                }
+                const yyyy = date.getFullYear();
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                return `'${yyyy}-${mm}-${dd}`;
+            };
+            const formatPrnForExport = (value) => {
+                if (value === null || value === undefined || value === '') {
+                    return 'N/A';
+                }
+                return `'${String(value)}`;
+            };
+            const rows = (assignments || []).map((assignment) => {
+                const student = studentById.get(assignment.student_id);
+                const attendanceKey = `${assignment.student_id}::${assignment.batch_id}`;
                 const rowData = {
-                    name: student.name || 'N/A',
-                    prn: student.prn || 'N/A',
-                    email: student.email || 'N/A',
-                    batch_names: (batchNamesByStudent.get(student.id) || []).join(' | ') || 'N/A',
-                    total_entries: summary?.totalEntries ?? 0,
-                    marks_entries: summary?.marksEntries ?? 0,
-                    skill_entries: summary?.skillEntries ?? 0,
-                    report_entries: summary?.reportEntries ?? 0,
-                    latest_report_score: summary?.latestReportScore || 'N/A',
-                    avg_report_score: summary && summary.reportScoreCount > 0
-                        ? Number((summary.reportScoreTotal / summary.reportScoreCount).toFixed(2))
+                    name: student?.name || 'N/A',
+                    prn: formatPrnForExport(student?.prn),
+                    batch_name: batchNameById.get(assignment.batch_id) || 'N/A',
+                    email: student?.email || 'N/A',
+                    meetings_attended: attendanceByStudentBatch.get(attendanceKey) || 0,
+                    progress_count: progressCountByStudent.get(assignment.student_id) || 0,
+                    report_score: latestReportScoreByStudent.get(assignment.student_id)?.score ?? 'N/A',
+                    cgpa: student?.cgpa !== null && student?.cgpa !== undefined && student?.cgpa !== ''
+                        ? student.cgpa
                         : 'N/A',
-                    latest_type: summary?.latestType || 'N/A',
-                    latest_title: summary?.latestTitle || 'N/A',
-                    latest_value: summary?.latestValue || 'N/A',
-                    latest_description: summary?.latestDescription || 'N/A',
-                    latest_date: summary?.latestDate || 'N/A',
+                    joining_date: formatDateForExport(assignment.start_date),
+                    ending_date: formatDateForExport(assignment.end_date),
                 };
                 return columns.map((column) => csvEscape(rowData[column.key])).join(',');
             });
@@ -684,6 +1001,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
           <Button variant="outline" className="gap-2" onClick={() => handleDownloadProgressExcel()} disabled={exporting}>
             <Download className="w-4 h-4"/>
             {exporting ? 'Preparing Excel...' : 'Download Excel Report'}
+          </Button>
+          <input ref={reportFileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportUpdatedReport}/>
+          <Button variant="outline" className="gap-2" onClick={() => reportFileInputRef.current?.click()} disabled={importingReport}>
+            <Upload className="w-4 h-4"/>
+            {importingReport ? 'Importing Report...' : 'Upload Updated Report'}
           </Button>
           <Button variant="outline" className="gap-2" onClick={() => setIsComparisonOpen(true)}>
             <BarChart3 className="w-4 h-4"/>

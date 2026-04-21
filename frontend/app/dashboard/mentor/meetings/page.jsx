@@ -218,8 +218,47 @@ export default function MentorMeetingsPage() {
             toast.error("Unable to cancel meeting: " + error.message);
             return;
         }
+        let failedEmails = 0;
+        if (meeting.batchId) {
+            const { data: assignments, error: assignmentError } = await supabase
+                .from("batch_students")
+                .select("student_id")
+                .eq("batch_id", meeting.batchId);
+            if (!assignmentError) {
+                const studentIds = Array.from(new Set((assignments || []).map((entry) => entry.student_id).filter(Boolean)));
+                if (studentIds.length > 0) {
+                    const { data: usersData } = await supabase
+                        .from("users")
+                        .select("email, name")
+                        .in("id", studentIds);
+                    const students = (usersData || []).filter((row) => row.email);
+                    for (const student of students) {
+                        try {
+                            const cancellationDetails = [
+                                `Meeting Title: ${meeting.title || "Mentorship Meeting"}`,
+                                `Date & Time: ${meeting.scheduledAt ? new Date(meeting.scheduledAt).toLocaleString() : `${meeting.date} ${meeting.time}`}`,
+                                `Batch: ${meeting.batch || "N/A"}`,
+                                "Status: Cancelled",
+                                "",
+                                "Please check your dashboard for updated meeting details.",
+                            ].join("\n");
+                            const emailResult = await sendNotificationEmail(student.email, student.name || "Student", "meeting_cancelled", cancellationDetails, mentorName);
+                            setLastSentTime(emailResult?.lastSentAt || new Date().toISOString());
+                        }
+                        catch (emailError) {
+                            failedEmails += 1;
+                            console.error("Unable to send meeting cancellation notification:", emailError.message);
+                        }
+                    }
+                }
+            }
+        }
         await fetchMeetings();
-        toast.success("Meeting cancelled.");
+        if (failedEmails > 0) {
+            toast.error(`Meeting cancelled, but ${failedEmails} cancellation email(s) failed to send.`);
+            return;
+        }
+        toast.success("Meeting cancelled and email notification sent.");
     };
     const openAttendanceDialog = async (meeting) => {
         if (!meeting.batchId) {
