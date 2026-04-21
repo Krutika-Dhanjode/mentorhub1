@@ -104,13 +104,13 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         }
         const studentIds = Array.from(new Set((assignmentData || []).map((assignment) => assignment.student_id).filter(Boolean)));
         let usersById = new Map();
-        let batchMeetingCount = {};
-        let studentAttendance = {};
+        let allMeetings = [];
+        let attendanceData = [];
 
         if (studentIds.length > 0) {
             const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('id, name, email, role, prn, cgpa')
+                .select('id, name, email, role, prn, cgpa, created_at')
                 .in('id', studentIds);
             if (userError) {
                 console.error('Error fetching users:', userError.message);
@@ -118,28 +118,19 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             }
             usersById = new Map((userData || []).map((entry) => [entry.id, entry]));
 
-            // Fetch meetings for denominator
             if (batchIds.length > 0) {
                 const { data: meetingsData } = await supabase
                     .from('meetings')
-                    .select('id, batch_id')
+                    .select('id, batch_id, scheduled_at')
                     .in('batch_id', batchIds);
-                
-                (meetingsData || []).forEach(m => {
-                    batchMeetingCount[m.batch_id] = (batchMeetingCount[m.batch_id] || 0) + 1;
-                });
+                allMeetings = meetingsData || [];
             }
 
-            // Fetch attendance for numerator
-            const { data: attendanceData } = await supabase
+            const { data: attendanceDataRows } = await supabase
                 .from('meeting_attendance')
-                .select('student_id, present')
+                .select('student_id, meeting_id, present')
                 .in('student_id', studentIds);
-
-            (attendanceData || []).forEach(a => {
-                if (!studentAttendance[a.student_id]) studentAttendance[a.student_id] = 0;
-                if (a.present) studentAttendance[a.student_id]++;
-            });
+            attendanceData = attendanceDataRows || [];
         }
         
         const formattedBatches = (batchData || []).map((batch) => ({
@@ -152,6 +143,20 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         const batchNameById = new Map((batchData || []).map((batch) => [batch.id, batch.name]));
         const formattedStudents = (assignmentData || []).map((assignment, index) => {
             const matchedUser = usersById.get(assignment.student_id);
+            const regDate = matchedUser?.created_at ? new Date(matchedUser.created_at) : new Date(0);
+            
+            // Calculate student-specific meeting count: only meetings held on or after registration date
+            const studentMeetings = (allMeetings || []).filter(m => 
+                m.batch_id === assignment.batch_id && 
+                new Date(m.scheduled_at) >= regDate
+            );
+            const totalMeetingsForStudent = studentMeetings.length;
+            const attendedCountForStudent = (attendanceData || []).filter(a => 
+                a.student_id === assignment.student_id && 
+                a.present && 
+                studentMeetings.some(sm => sm.id === a.meeting_id)
+            ).length;
+
             return {
                 id: assignment.id || `${assignment.student_id}-${assignment.batch_id}`,
                 assignmentId: assignment.id || null,
@@ -165,7 +170,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 status: assignment.status || 'Good Standing',
                 startDate: assignment.start_date || '',
                 endDate: assignment.end_date || '',
-                attendance: `${studentAttendance[assignment.student_id] || 0}/${batchMeetingCount[assignment.batch_id] || 0}`,
+                attendance: `${attendedCountForStudent}/${totalMeetingsForStudent}`,
             };
         });
         setStudents(formattedStudents);
@@ -761,7 +766,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             }
             const { data: studentRows, error: studentError } = await supabase
                 .from('users')
-                .select('id, name, email, prn, cgpa')
+                .select('id, name, email, prn, cgpa, created_at')
                 .in('id', uniqueStudentIds);
             if (studentError) {
                 toast.error('Unable to fetch student details: ' + studentError.message);
@@ -777,7 +782,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             }
             const { data: meetingsData, error: meetingsError } = await supabase
                 .from('meetings')
-                .select('id, batch_id')
+                .select('id, batch_id, scheduled_at')
                 .in('batch_id', batchIds);
             if (meetingsError) {
                 toast.error('Unable to fetch meetings data: ' + meetingsError.message);
@@ -862,17 +867,31 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             const rows = (assignments || []).map((assignment) => {
                 const student = studentById.get(assignment.student_id);
                 const attendanceKey = `${assignment.student_id}::${assignment.batch_id}`;
+                const s = studentById.get(assignment.student_id);
+                const regDate = s?.created_at ? new Date(s.created_at) : new Date(0);
+                
+                // Filter meetings for this specific student
+                const studentMeetings = (meetingsData || []).filter(m => 
+                    m.batch_id === assignment.batch_id && 
+                    new Date(m.scheduled_at) >= regDate
+                );
+                
+                const attCount = (attendanceRows || []).filter(att => 
+                    att.student_id === assignment.student_id && 
+                    att.present && 
+                    studentMeetings.some(sm => sm.id === att.meeting_id)
+                ).length;
+                
+                const reportScore = latestReportScoreByStudent.get(assignment.student_id)?.score ?? 'N/A';
                 const rowData = {
-                    name: student?.name || 'N/A',
-                    prn: formatPrnForExport(student?.prn),
+                    name: s?.name || 'N/A',
+                    prn: s?.prn ? `'${String(s.prn)}` : 'N/A',
                     batch_name: batchNameById.get(assignment.batch_id) || 'N/A',
-                    email: student?.email || 'N/A',
-                    meetings_attended: attendanceByStudentBatch.get(attendanceKey) || 0,
+                    email: s?.email || 'N/A',
+                    meetings_attended: `${attCount}/${studentMeetings.length}`,
                     progress_count: progressCountByStudent.get(assignment.student_id) || 0,
-                    report_score: latestReportScoreByStudent.get(assignment.student_id)?.score ?? 'N/A',
-                    cgpa: student?.cgpa !== null && student?.cgpa !== undefined && student?.cgpa !== ''
-                        ? student.cgpa
-                        : 'N/A',
+                    report_score: reportScore,
+                    cgpa: s?.cgpa ?? 'N/A',
                     joining_date: formatDateForExport(assignment.start_date),
                     ending_date: formatDateForExport(assignment.end_date),
                 };
