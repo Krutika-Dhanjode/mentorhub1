@@ -11,12 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
-const COLLEGE_NAME = 'Walchand College of Engineering, Sangli';
-const COLLEGE_SUBTITLE = '(Government Aided Autonomous Institute)';
-const DEPARTMENT_NAME = 'Department of Information Technology';
-const FORM_TITLE = 'STUDENTS MENTORSHIP FORM';
-const PAGE_WIDTH = 595;
-const RIGHT_MARGIN = 535;
+
 const genderOptions = ['Male', 'Female', 'Other'];
 const stateOptions = ['Maharashtra', 'Karnataka', 'Goa', 'Gujarat', 'Madhya Pradesh', 'Other'];
 const categoryOptions = ['OPEN', 'OBC', 'SC', 'ST', 'EWS', 'NT', 'SBC', 'Other'];
@@ -25,122 +20,7 @@ const seatTypeOptions = ['CET Merit', 'Management', 'Trust quota', 'Other'];
 const yesNoOptions = ['Yes', 'No'];
 const maritalStatusOptions = ['No', 'Yes'];
 const residenceOptions = ['College Hostel', 'Private Room', 'Private Hostel', 'Other'];
-const escapePdfText = (value) => value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-const getCenteredX = (text, size) => {
-    const estimatedWidth = text.length * size * 0.45;
-    return Math.max(40, (PAGE_WIDTH - estimatedWidth) / 2);
-};
-const getRightAlignedX = (text, size, rightEdge = RIGHT_MARGIN) => {
-    const estimatedWidth = text.length * size * 0.45;
-    return Math.max(40, rightEdge - estimatedWidth);
-};
-const encoder = new TextEncoder();
-const encodeText = (value) => encoder.encode(value);
-const buildPdfBlob = (items, image) => {
-    const textLines = items.map(({ text, x, y, size = 10 }) => {
-        return `BT /F1 ${size} Tf 1 0 0 1 ${x} ${y} Tm (${escapePdfText(text)}) Tj ET`;
-    });
-    const imageLines = image
-        ? [
-            `${image.x} ${image.y} ${image.displayWidth} ${image.displayHeight} re S`,
-            `q`,
-            `${image.displayWidth} 0 0 ${image.displayHeight} ${image.x} ${image.y} cm`,
-            `/Im1 Do`,
-            `Q`,
-        ]
-        : ['430 608 100 120 re S'];
-    const streamLines = [...textLines, ...imageLines];
-    const parts = [];
-    let currentLength = 0;
-    const offsets = [0];
-    let objectIndex = 1;
-    const pushPart = (part) => {
-        parts.push(part);
-        currentLength += part.length;
-    };
-    pushPart(encodeText('%PDF-1.4\n'));
-    const addObject = (content, binaryParts) => {
-        offsets.push(currentLength);
-        pushPart(encodeText(`${objectIndex} 0 obj\n`));
-        if (typeof content === 'string') {
-            pushPart(encodeText(content));
-        }
-        else {
-            pushPart(content);
-        }
-        if (binaryParts) {
-            binaryParts.forEach((part) => pushPart(part));
-        }
-        pushPart(encodeText('\nendobj\n'));
-        objectIndex += 1;
-        return objectIndex - 1;
-    };
-    const fontObject = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-    const imageObject = image
-        ? addObject(`<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.data.length} >>\nstream\n`, [image.data, encodeText('\nendstream')])
-        : null;
-    const streamContent = streamLines.join('\n');
-    const contentObject = addObject(`<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream`);
-    const pageObjectId = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontObject} 0 R >> ${imageObject ? `/XObject << /Im1 ${imageObject} 0 R >>` : ''} >> /Contents ${contentObject} 0 R >>`);
-    const pagesObjectId = addObject(`<< /Type /Pages /Kids [${pageObjectId} 0 R] /Count 1 >>`);
-    const catalogObjectId = addObject(`<< /Type /Catalog /Pages ${pagesObjectId} 0 R >>`);
-    for (let index = 0; index < parts.length; index += 1) {
-        const part = parts[index];
-        const partText = new TextDecoder().decode(part);
-        if (partText.includes('/Parent 0 0 R')) {
-            parts[index] = encodeText(partText.replace('/Parent 0 0 R', `/Parent ${pagesObjectId} 0 R`));
-            currentLength += parts[index].length - part.length;
-            break;
-        }
-    }
-    const xrefOffset = currentLength;
-    pushPart(encodeText(`xref\n0 ${offsets.length}\n`));
-    pushPart(encodeText('0000000000 65535 f \n'));
-    offsets.slice(1).forEach((offset) => {
-        pushPart(encodeText(`${String(offset).padStart(10, '0')} 00000 n \n`));
-    });
-    pushPart(encodeText(`trailer\n<< /Size ${offsets.length} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`));
-    return new Blob(parts, { type: 'application/pdf' });
-};
-const loadImageAsJpeg = async (url) => {
-    try {
-        const image = new window.Image();
-        image.crossOrigin = 'anonymous';
-        await new Promise((resolve, reject) => {
-            image.onload = () => resolve();
-            image.onerror = () => reject(new Error('Unable to load image'));
-            image.src = url;
-        });
-        const canvas = document.createElement('canvas');
-        canvas.width = image.naturalWidth;
-        canvas.height = image.naturalHeight;
-        const context = canvas.getContext('2d');
-        if (!context)
-            return null;
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(image, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        const base64 = dataUrl.split(',')[1];
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) {
-            bytes[index] = binary.charCodeAt(index);
-        }
-        return {
-            data: bytes,
-            width: canvas.width,
-            height: canvas.height,
-            x: 430,
-            y: 608,
-            displayWidth: 100,
-            displayHeight: 120,
-        };
-    }
-    catch {
-        return null;
-    }
-};
+
 const defaultProfile = {
     name: '',
     email: '',
@@ -414,206 +294,9 @@ export default function StudentSettingsPage() {
             setIsSaving(false);
         }
     };
-    const handleDownload = async () => {
-        const items = [
-            { text: COLLEGE_NAME, x: getCenteredX(COLLEGE_NAME, 16), y: 808, size: 16 },
-            { text: COLLEGE_SUBTITLE, x: getCenteredX(COLLEGE_SUBTITLE, 11), y: 788, size: 11 },
-            { text: DEPARTMENT_NAME, x: getCenteredX(DEPARTMENT_NAME, 14), y: 770, size: 14 },
-            { text: FORM_TITLE, x: getCenteredX(FORM_TITLE, 13), y: 748, size: 13 },
-            { text: 'Photo', x: 484, y: 708, size: 10 },
-            { text: '_______________________________________________', x: 30, y: 724, size: 10 },
-            { text: `Name in full ${profile.name || '_______________________________________________________________'}`, x: 30, y: 690, size: 10 },
-            {
-                text: `Admission date ${profile.admissionDate ? profile.admissionDate.replace(/-/g, ' / ') : '__ / __ / ________'}  Year ${profile.academicYear || '________'}  PRN No. ${profile.prn || '____________________'}`,
-                x: 30,
-                y: 670,
-                size: 10,
-            },
-            {
-                text: `Gender: ${profile.gender || 'M/F'}  Birth date ${profile.dateOfBirth || '____________'}  Birth place ${profile.birthPlace || '__________'}  Birth Dist. ${profile.birthDistrict || '___________'}`,
-                x: 30,
-                y: 650,
-                size: 10,
-            },
-            {
-                text: `Religion ${profile.religion || '______________'}  Category ${profile.category || '___________'}`,
-                x: 30,
-                y: 632,
-                size: 10,
-            },
-            {
-                text: `Caste/Sub Caste ${profile.casteSubCaste || '__________________'}  Domicile ${profile.domicile || '___________'}  Blood Group ${profile.bloodGroup || '_______'}`,
-                x: 30,
-                y: 614,
-                size: 10,
-            },
-            {
-                text: `Seat type: CET Merit/Management/Trust quota ${profile.seatType || '__________________'}`,
-                x: 30,
-                y: 596,
-                size: 10,
-            },
-            {
-                text: `SSC Marks: ${profile.sscMarks || '______'} out of ${profile.sscOutOf || '____'} Passing Year ${profile.sscPassingYear || '______'} SSC Board ${profile.sscBoard || '____________________'}`,
-                x: 30,
-                y: 560,
-                size: 10,
-            },
-            {
-                text: `HSC Marks: ${profile.hscMarks || '______'} out of ${profile.hscOutOf || '____'} Passing Year ${profile.hscPassingYear || '______'} HSC Board ${profile.hscBoard || '____________________'}`,
-                x: 30,
-                y: 542,
-                size: 10,
-            },
-            {
-                text: `Diploma Marks: ${profile.diplomaMarks || '______'} out of ${profile.diplomaOutOf || '____'} Passing Year ${profile.diplomaPassingYear || '______'}`,
-                x: 30,
-                y: 524,
-                size: 10,
-            },
-            {
-                text: `Marks obtained in HSC- physics ${profile.hscPhysicsMarks || '______'} Chemistry ${profile.hscChemistryMarks || '______'} Mathematics ${profile.hscMathematicsMarks || '______'} Total ${profile.hscTotalMarks || '______'} Out of ${profile.hscOutOf || '____'}`,
-                x: 30,
-                y: 506,
-                size: 10,
-            },
-            {
-                text: `Name of Institution last attended (HSC/Diploma) ${profile.lastInstitutionName || '______________________________________________'}`,
-                x: 30,
-                y: 488,
-                size: 10,
-            },
-            {
-                text: `City: ${profile.city || '__________'} District: ${profile.district || '____________'} State: ${profile.state || '________________'}`,
-                x: 30,
-                y: 470,
-                size: 10,
-            },
-            {
-                text: `Parents Income ${profile.parentsIncome || '____________'} Free concession Yes/No Type: ${profile.freeConcession || '____________'} No of Childs ${profile.numberOfChildren || '________'}`,
-                x: 30,
-                y: 452,
-                size: 10,
-            },
-            {
-                text: `Father Name (in full) ${profile.fatherName || '________________________________________________________________'}`,
-                x: 30,
-                y: 434,
-                size: 10,
-            },
-            {
-                text: `Father’s permanent Residence address ${profile.fatherAddress || '______________________________________________________'}`,
-                x: 30,
-                y: 416,
-                size: 10,
-            },
-            { text: '_______________________________________________________________________________________________', x: 30, y: 400, size: 10 },
-            {
-                text: `Office address ${profile.fatherOfficeAddress || '______________________________'} Designation ${profile.fatherDesignation || '________________'}`,
-                x: 30,
-                y: 382,
-                size: 10,
-            },
-            {
-                text: `Occupation ${profile.fatherOccupation || '________________'} E Mail ${profile.fatherEmail || '______________________'} Mobile No. ${profile.fatherMobile || '__________________'}`,
-                x: 30,
-                y: 364,
-                size: 10,
-            },
-            {
-                text: `Mother Name (in full) ${profile.motherName || '________________________________________________________________'}`,
-                x: 30,
-                y: 346,
-                size: 10,
-            },
-            {
-                text: `Office address ${profile.motherOfficeAddress || '______________________________'} Designation ${profile.motherDesignation || '________________'}`,
-                x: 30,
-                y: 328,
-                size: 10,
-            },
-            {
-                text: `Occupation ${profile.motherOccupation || '________________'} E Mail ${profile.motherEmail || '______________________'} Mobile No. ${profile.motherMobile || '__________________'}`,
-                x: 30,
-                y: 310,
-                size: 10,
-            },
-            {
-                text: `Local Guardian name (in full) ${profile.localGuardianName || '___________________________________________________________'}`,
-                x: 30,
-                y: 292,
-                size: 10,
-            },
-            {
-                text: `and his permanent address ${profile.localGuardianAddress || '___________________________________________________________'}`,
-                x: 30,
-                y: 274,
-                size: 10,
-            },
-            {
-                text: `Office address ${profile.localGuardianOfficeAddress || '______________________________'} Designation ${profile.localGuardianDesignation || '________________'}`,
-                x: 30,
-                y: 256,
-                size: 10,
-            },
-            {
-                text: `Occupation ${profile.localGuardianOccupation || '________________'} E Mail ${profile.localGuardianEmail || '______________________'} Mobile No. ${profile.localGuardianMobile || '__________________'}`,
-                x: 30,
-                y: 238,
-                size: 10,
-            },
-            {
-                text: `Student’s local residence: College Hostel/Private Room/Private Hostel/ Other ${profile.localResidence || '______________________________'}`,
-                x: 30,
-                y: 220,
-                size: 10,
-            },
-            {
-                text: `Height: ${profile.height || '____________'} Weight: ${profile.weight || '____________'} Married ${profile.maritalStatus || '________________'}`,
-                x: 30,
-                y: 202,
-                size: 10,
-            },
-            {
-                text: 'I hereby declare that information given is correct. I undertake to observe and abide by the rules and regulations of the',
-                x: 30,
-                y: 172,
-                size: 9,
-            },
-            {
-                text: 'college. I undertake to make good any damage or loss caused by me to the property of the college or other students etc. and',
-                x: 30,
-                y: 160,
-                size: 9,
-            },
-            {
-                text: 'pays all the fees in time.',
-                x: 30,
-                y: 148,
-                size: 9,
-            },
-            {
-                text: 'Document: 1) Aadhar card 2) CET Score card / Diploma Mark sheet, 3) Mark sheet of FY/SY/TY',
-                x: 30,
-                y: 132,
-                size: 9,
-            },
-            {
-                text: `Optional Info -Any allergic and or disease history for precautions ${profile.allergyHistory || '_____________________________________________'}`,
-                x: 30,
-                y: 116,
-                size: 9,
-            },
-        ];
-        items.push({ text: "Student's Name & Signature", x: 35, y: 45, size: 10 }, { text: 'Parent/Guardians Name & Signature', x: getRightAlignedX('Parent/Guardians Name & Signature', 10), y: 45, size: 10 });
-        const photoImage = profile.photoUrl ? await loadImageAsJpeg(profile.photoUrl) : null;
-        const blob = buildPdfBlob(items, photoImage || undefined);
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `${(profile.prn || 'student-mentorship-form').replace(/\s+/g, '-').toLowerCase()}.pdf`;
-        anchor.click();
-        URL.revokeObjectURL(url);
+    const handleDownload = () => {
+        if (!user) return;
+        window.open(`/print/mentorship-form/${user.id}`, '_blank');
     };
     const renderInput = (key, label, props) => (<div className="space-y-2">
       <Label htmlFor={String(key)}>{label}</Label>
@@ -648,11 +331,23 @@ export default function StudentSettingsPage() {
         const { data } = supabase.storage
             .from('student-profile-photos')
             .getPublicUrl(filePath);
+        
+        // Auto-save to database immediately
+        await supabase
+            .from('users')
+            .update({
+                photo_path: filePath,
+                photo_url: data.publicUrl,
+            })
+            .eq('id', user.id);
+
         setProfile((current) => ({
             ...current,
             photoPath: filePath,
             photoUrl: data.publicUrl,
         }));
+        
+        toast.success('Photo updated successfully!');
         setIsUploadingPhoto(false);
     };
     return (<div className="space-y-6 max-w-6xl">

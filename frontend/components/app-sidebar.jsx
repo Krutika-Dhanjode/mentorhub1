@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Users, Calendar, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare } from 'lucide-react';
+import { Menu, X, Users, Calendar, CalendarPlus, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 export function AppSidebar({ userRole = 'Admin' }) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -33,6 +33,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
             return [
                 { label: 'Mentors', href: '/dashboard/hod/mentors', icon: <UserCog className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/hod/meetings', icon: <Calendar className="w-5 h-5"/> },
+                { label: 'Schedule', href: '/dashboard/hod/schedule', icon: <CalendarPlus className="w-5 h-5"/> },
                 { label: 'Profile', href: '/dashboard/hod/settings', icon: <Settings className="w-5 h-5"/> },
             ];
         }

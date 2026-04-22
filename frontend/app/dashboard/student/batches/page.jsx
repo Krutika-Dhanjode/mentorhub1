@@ -46,7 +46,7 @@ export default function StudentBatchesPage() {
             const { data: mentorData } = mentorIds.length > 0
                 ? await supabase
                     .from('users')
-                    .select('id, name, email')
+                    .select('id, name, email, department')
                     .in('id', mentorIds)
                 : { data: [] };
             const { data: peerAssignments, error: peerAssignmentsError } = await supabase
@@ -63,7 +63,7 @@ export default function StudentBatchesPage() {
             const { data: peerUsers } = peerIds.length > 0
                 ? await supabase
                     .from('users')
-                    .select('id, name, email')
+                    .select('id, name, email, prn')
                     .in('id', peerIds)
                 : { data: [] };
             const mentorsById = new Map((mentorData || []).map((mentor) => [mentor.id, mentor]));
@@ -75,12 +75,14 @@ export default function StudentBatchesPage() {
                 year: batch.year,
                 mentorName: mentorsById.get(batch.mentor_id)?.name || 'Unknown Mentor',
                 mentorEmail: mentorsById.get(batch.mentor_id)?.email || '',
+                mentorDepartment: mentorsById.get(batch.mentor_id)?.department || 'Not specified',
                 classmates: (peerAssignments || [])
                     .filter((entry) => entry.batch_id === batch.id)
                     .map((entry) => ({
                     id: entry.student_id,
                     name: peersById.get(entry.student_id)?.name || entry.student_name || 'Unknown Student',
                     email: peersById.get(entry.student_id)?.email || '',
+                    prn: peersById.get(entry.student_id)?.prn || 'Not available',
                 }))
                     .sort((a, b) => a.name.localeCompare(b.name)),
             }));
@@ -156,7 +158,7 @@ export default function StudentBatchesPage() {
                     <Badge variant="outline">{assignment.year || 'Current Batch'}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Department: {assignment.department || 'Not specified'}
+                    Department: {assignment.mentorDepartment}
                   </p>
                   <div className="rounded-xl bg-secondary/40 p-4">
                     <p className="text-sm font-medium text-foreground">Mentor</p>
@@ -179,7 +181,7 @@ export default function StudentBatchesPage() {
                     {assignment.classmates.map((student) => (<div key={`${assignment.batchId}-${student.id}`} className="rounded-xl border border-border bg-card p-4">
                         <p className="font-medium text-foreground">{student.name}</p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          {student.email || 'Email not available'}
+                          PRN: {student.prn}
                         </p>
                         {student.id === user?.id && (<Badge className="mt-3 bg-accent/20 text-accent">You</Badge>)}
                       </div>))}

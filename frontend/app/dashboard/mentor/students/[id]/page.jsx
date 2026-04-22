@@ -311,15 +311,12 @@ export default function StudentReportPage({ params }) {
       {/* STUDENT INFO */}
       <Card className="p-6">
         <h2 className="text-xl font-bold">{student.name}</h2>
-        <p>{student.email}</p>
+        <p className="text-sm text-muted-foreground">PRN: {student.prn || "N/A"}</p>
       </Card>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card className="p-4">
-          <p>Scheduled Meetings (Student Batch)</p>
-          <h3>{meetings.length}</h3>
-        </Card>
+      <div className="grid grid-cols-1 gap-4">
+
 
         <Card className="p-4">
           <p>Mentor Score & Status</p>
@@ -348,14 +345,7 @@ export default function StudentReportPage({ params }) {
       </div>
 
       {/* MEETINGS */}
-      <Card className="p-4">
-        <h3>Scheduled Meetings (Student Batch)</h3>
 
-        {meetings.map((m) => (<div key={m.id} className="border p-2 mb-2">
-            <p>{m.title}</p>
-            <p>{new Date(m.scheduled_at).toLocaleString()}</p>
-          </div>))}
-      </Card>
 
       {/* PROGRESS */}
       <Card className="p-4">

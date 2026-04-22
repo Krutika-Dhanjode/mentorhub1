@@ -41,8 +41,8 @@ export default function PrintMentorshipFormPage({ params }) {
             {/* Header section matching Walchand specific format */}
             <div className="text-center mb-4 relative">
                 {/* College Header */}
-                <h1 className="text-[#e2000f] font-bold text-2xl uppercase tracking-wider mb-1" style={{ fontFamily: 'Times New Roman, serif' }}>
-                    Walchand College of Engineering, Sangli
+                <h1 className="text-[#e2000f] font-bold text-2xl uppercase tracking-widest mb-1" style={{ fontFamily: 'Times New Roman, serif' }}>
+                    WALCHAND COLLEGE OF ENGINEERING, SANGLI
                 </h1>
                 <p className="text-sm font-medium mb-1">(Government Aided Autonomous Institute)</p>
                 <h2 className="font-bold text-[17px] mb-2">Department of Information Technology</h2>
@@ -51,15 +51,15 @@ export default function PrintMentorshipFormPage({ params }) {
                 <div className="w-full border-t-[1.5px] border-dashed border-[#e2000f] my-3"></div>
                 
                 {/* Form Title */}
-                <h3 className="font-bold text-lg underline underline-offset-4 decoration-[1.5px] mb-4">STUDENTS MENTORSHIP FORM</h3>
+                <h3 className="font-bold text-xl underline underline-offset-[6px] decoration-[2px] mb-6 uppercase">STUDENTS MENTORSHIP FORM</h3>
 
                 {/* Photo box floating right */}
-                <div className="absolute right-0 top-16 w-28 h-36 border border-black flex flex-col items-center justify-center bg-gray-50/50 overflow-hidden">
+                <div className="absolute right-2 top-16 w-32 h-40 border-2 border-black flex flex-col items-center justify-center bg-gray-50/30 overflow-hidden shadow-sm">
                     {studentProfile.photo_url ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={studentProfile.photo_url} alt="Profile Photo" className="w-full h-full object-cover" />
                     ) : (
-                        <span className="text-xs font-semibold text-gray-500">Photo</span>
+                        <span className="text-[10px] font-bold uppercase text-gray-400">Photo</span>
                     )}
                 </div>
             </div>
