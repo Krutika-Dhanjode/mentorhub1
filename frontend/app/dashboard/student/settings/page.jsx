@@ -332,19 +332,21 @@ export default function StudentSettingsPage() {
             .from('student-profile-photos')
             .getPublicUrl(filePath);
         
+        const photoUrlWithCacheBuster = `${data.publicUrl}?t=${new Date().getTime()}`;
+        
         // Auto-save to database immediately
         await supabase
             .from('users')
             .update({
                 photo_path: filePath,
-                photo_url: data.publicUrl,
+                photo_url: photoUrlWithCacheBuster,
             })
             .eq('id', user.id);
 
         setProfile((current) => ({
             ...current,
             photoPath: filePath,
-            photoUrl: data.publicUrl,
+            photoUrl: photoUrlWithCacheBuster,
         }));
         
         toast.success('Photo updated successfully!');

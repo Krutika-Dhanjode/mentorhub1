@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, Upload, BarChart3, Edit, Calendar } from 'lucide-react';
+import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, Upload, BarChart3, Edit, Calendar, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -1129,6 +1129,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <Link href={`/dashboard/mentor/batches/${batch.id}/chat`} onClick={(event) => event.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="shrink-0 text-accent hover:text-accent" title={`Open ${batch.name} group chat`}>
+                    <MessageSquare className="w-4 h-4"/>
+                  </Button>
+                </Link>
                 <Button variant="ghost" size="icon" className="shrink-0 text-primary hover:text-primary" onClick={(event) => {
                 event.stopPropagation();
                 handleDownloadProgressExcel(batch.id);

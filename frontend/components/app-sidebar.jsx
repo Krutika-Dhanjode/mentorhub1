@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Users, Calendar, CalendarPlus, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare } from 'lucide-react';
+import { Menu, X, Users, Calendar, CalendarPlus, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare, Hash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 export function AppSidebar({ userRole = 'Admin' }) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -14,6 +14,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
         if (normalizedRole === 'student') {
             return [
                 { label: 'My Batches', href: '/dashboard/student/batches', icon: <Layers3 className="w-5 h-5"/> },
+                { label: 'Batch Chat', href: '/dashboard/student/chat', icon: <Hash className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/student/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Guidance', href: '/dashboard/student/guidance', icon: <MessageSquare className="w-5 h-5"/> },
                 { label: 'Progress', href: '/dashboard/student/progress', icon: <TrendingUp className="w-5 h-5"/> },
@@ -25,6 +26,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
                 { label: 'Students', href: '/dashboard/mentor/students', icon: <Users className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/mentor/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Guidance', href: '/dashboard/mentor/guidance', icon: <MessageSquare className="w-5 h-5"/> },
+                { label: 'Batch Chat', href: '/dashboard/mentor/chat', icon: <Hash className="w-5 h-5"/> },
                 { label: 'Profile', href: '/dashboard/mentor/settings', icon: <Settings className="w-5 h-5"/> },
             ];
         }
@@ -64,7 +66,9 @@ export function AppSidebar({ userRole = 'Admin' }) {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href ||
+              (item.href === '/dashboard/mentor/chat' && pathname.includes('/dashboard/mentor/batches') && pathname.includes('/chat')) ||
+              (item.href === '/dashboard/student/chat' && pathname.includes('/dashboard/student/batches') && pathname.includes('/chat'));
             return (<Link key={item.href} href={item.href} onClick={() => setIsMobileOpen(false)} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200', isActive
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent')}>

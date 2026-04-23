@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, GraduationCap, Users, UserCog, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, Users, UserCog, KeyRound, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -144,13 +144,23 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-accent/10 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md shadow-lg border-0">
-                <div className="p-8">
-                    <div className="mb-6 flex items-center justify-center gap-3">
-                        <Image src="/logo1.jpeg" alt="Mentor Mentee Hub logo" width={48} height={48} className="h-12 w-12 object-contain" priority/>
-                        <span className="text-xl font-semibold text-foreground">Mentor Mentee Hub</span>
-                    </div>
+        <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-accent/10 p-4 flex flex-col">
+            <div className="w-full max-w-5xl mx-auto flex justify-start mb-4">
+                <Link href="/">
+                    <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Home
+                    </Button>
+                </Link>
+            </div>
+
+            <div className="flex-1 flex items-center justify-center -mt-10 py-8">
+                <Card className="w-full max-w-md shadow-lg border-0 h-fit">
+                    <div className="p-8">
+                        <Link href="/" className="mb-6 flex items-center justify-center gap-3 hover:opacity-80 transition-opacity">
+                            <Image src="/logo1.jpeg" alt="Mentor Mentee Hub logo" width={48} height={48} className="h-12 w-12 object-contain" priority/>
+                            <span className="text-xl font-semibold text-foreground">Mentor Mentee Hub</span>
+                        </Link>
 
                     {!isOtpStep ? (
                         <>
@@ -275,7 +285,8 @@ export default function SignupPage() {
                         </>
                     )}
                 </div>
-            </Card>
+                </Card>
+            </div>
         </div>
     );
 }

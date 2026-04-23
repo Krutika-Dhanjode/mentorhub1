@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, EyeOff, GraduationCap, Users, UserCog } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Users, UserCog, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,86 +98,97 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-accent/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg border-0">
-        <div className="p-8">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <Image
-              src="/logo1.jpeg"
-              alt="Mentor Mentee Hub logo"
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-md object-contain"
-              priority
-            />
-            <span className="font-semibold text-base text-foreground">Mentor Mentee Hub</span>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-accent/10 p-4 flex flex-col">
+      <div className="w-full max-w-5xl mx-auto flex justify-start mb-4">
+        <Link href="/">
+          <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </Button>
+        </Link>
+      </div>
 
-          <div className="space-y-2 text-center mb-6">
-            <h1 className="text-xl font-semibold">Welcome Back</h1>
-            <p className="text-muted-foreground text-sm">Sign in to access the mentorship platform</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label>Select Your Role</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {roles.map((role) => {
-                  const Icon = role.icon;
-                  return (
-                    <button
-                      key={role.id}
-                      type="button"
-                      onClick={() => setSelectedRole(role.id)}
-                      className={`p-3 border rounded ${
-                        selectedRole === role.id ? "border-primary bg-primary/10" : ""
-                      }`}
-                    >
-                      <Icon className="w-5 h-5 mx-auto" />
-                      <span className="text-xs">{role.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-
-            <div>
-              <Label>Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
-                </button>
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full h-10 font-semibold" disabled={isLoading || !selectedRole}>
-              {isLoading ? "Processing..." : "Sign In"}
-            </Button>
-          </form>
-
-          <p className="text-center mt-4 text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary hover:underline">
-              Sign up
+      <div className="flex-1 flex items-center justify-center -mt-16">
+        <Card className="w-full max-w-md shadow-lg border-0">
+          <div className="p-8">
+            <Link href="/" className="flex items-center justify-center gap-2 mb-6 hover:opacity-80 transition-opacity">
+              <Image
+                src="/logo1.jpeg"
+                alt="Mentor Mentee Hub logo"
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-md object-contain"
+                priority
+              />
+              <span className="font-semibold text-base text-foreground">Mentor Mentee Hub</span>
             </Link>
-          </p>
-        </div>
-      </Card>
+
+            <div className="space-y-2 text-center mb-6">
+              <h1 className="text-xl font-semibold">Welcome Back</h1>
+              <p className="text-muted-foreground text-sm">Sign in to access the mentorship platform</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label>Select Your Role</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {roles.map((role) => {
+                    const Icon = role.icon;
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => setSelectedRole(role.id)}
+                        className={`p-3 border rounded ${
+                          selectedRole === role.id ? "border-primary bg-primary/10" : ""
+                        }`}
+                      >
+                        <Icon className="w-5 h-5 mx-auto" />
+                        <span className="text-xs">{role.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <Label>Email</Label>
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+
+              <div>
+                <Label>Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                  </button>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full h-10 font-semibold" disabled={isLoading || !selectedRole}>
+                {isLoading ? "Processing..." : "Sign In"}
+              </Button>
+            </form>
+
+            <p className="text-center mt-4 text-sm">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

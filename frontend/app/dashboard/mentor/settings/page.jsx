@@ -114,10 +114,12 @@ export default function MentorSettingsPage() {
                 .from('student-profile-photos')
                 .getPublicUrl(filePath);
 
+            const photoUrlWithCacheBuster = `${data.publicUrl}?t=${new Date().getTime()}`;
+
             setProfile(current => ({
                 ...current,
                 photoPath: filePath,
-                photoUrl: data.publicUrl
+                photoUrl: photoUrlWithCacheBuster
             }));
             toast.success('Photo uploaded! Click "Save Changes" to persist.');
         } catch (err) {
