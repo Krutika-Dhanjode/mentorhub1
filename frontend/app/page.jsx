@@ -35,9 +35,7 @@ export default function Home() {
             backgroundImage: "url('/image3.jpeg')",
         }}>
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Built for Every Role</h2>
-          </div>
+
 
           <div className="min-h-[10vh]"/>
 
