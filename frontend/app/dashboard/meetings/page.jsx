@@ -125,9 +125,9 @@ export default function MeetingsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">Upcoming Meetings</h2>
         <div className="space-y-4">
-          {upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="p-6 border-border hover:shadow-md transition-all duration-200 cursor-pointer">
+          {upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="p-3 border-border hover:shadow-md transition-all duration-200 cursor-pointer">
               <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex-1 space-y-3">
+                <div className="flex-1 space-y-1">
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">{meeting.participantName}</h3>
                     <p className="text-sm text-muted-foreground">
@@ -172,7 +172,7 @@ export default function MeetingsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">Past Meetings</h2>
         <div className="space-y-3">
-          {pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-4 border-border hover:shadow-md transition-all duration-200">
+          {pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-3 border-border hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex-1">
                   <h4 className="font-semibold text-foreground">{meeting.participantName}</h4>

@@ -14,7 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '@/components/ui/table';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
+import { Checkbox } from '@/components/ui/checkbox';
+
 const escapePdfText = (value) => value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+const csvEscape = (value) => {
+    if (value === null || value === undefined)
+        return '';
+    const text = String(value).replace(/"/g, '""');
+    return `"${text}"`;
+};
+
 const buildPdfBlob = (lines) => {
     const linesPerPage = 32;
     const pages = [];
@@ -53,6 +62,7 @@ const buildPdfBlob = (lines) => {
     pdf += `trailer\n<< /Size ${offsets.length} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
     return new Blob([pdf], { type: 'application/pdf' });
 };
+
 export default function AdminMentorsPage() {
     const { user, loading } = useUser();
     const supabase = createClient();
@@ -61,13 +71,14 @@ export default function AdminMentorsPage() {
     const [dataLoading, setDataLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
-    const [selectedMentorId, setSelectedMentorId] = useState('');
+    const [selectedMentorIds, setSelectedMentorIds] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [expandedMentorId, setExpandedMentorId] = useState(null);
     const [newMentor, setNewMentor] = useState({
         name: '',
         email: '',
     });
+
     const fetchMentors = async () => {
         if (!user)
             return;
@@ -152,11 +163,13 @@ export default function AdminMentorsPage() {
         setMentors(formattedMentors);
         setDataLoading(false);
     };
+
     useEffect(() => {
         if (!loading && user) {
             fetchMentors();
         }
     }, [loading, user]);
+
     const filteredMentors = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         if (!query)
@@ -164,6 +177,7 @@ export default function AdminMentorsPage() {
         return mentors.filter((mentor) => mentor.name.toLowerCase().includes(query) ||
             mentor.email.toLowerCase().includes(query));
     }, [mentors, searchTerm]);
+
     const handleAddMentor = async () => {
         if (!user || !newMentor.name.trim() || !newMentor.email.trim())
             return;
@@ -214,92 +228,233 @@ export default function AdminMentorsPage() {
         setIsSaving(false);
         await fetchMentors();
     };
-    const handleGenerateReport = async () => {
-        if (!selectedMentorId)
-            return;
-        const mentor = mentors.find((item) => item.id === selectedMentorId);
-        if (!mentor)
-            return;
-        const { data: batchData, error: batchError } = await supabase
-            .from('batches')
-            .select('id, name')
-            .eq('mentor_id', selectedMentorId)
-            .order('name', { ascending: true });
-        if (batchError) {
-            toast.error('Unable to load mentor batches: ' + batchError.message);
-            return;
-        }
-        const batchIds = (batchData || []).map((batch) => batch.id);
-        const { data: assignmentData } = batchIds.length > 0
-            ? await supabase
-                .from('batch_students')
-                .select('batch_id, student_id, student_name')
-                .in('batch_id', batchIds)
-            : { data: [] };
-        const studentIds = Array.from(new Set((assignmentData || []).map((row) => row.student_id).filter(Boolean)));
-        const { data: studentUsers } = studentIds.length > 0
-            ? await supabase
-                .from('users')
-                .select('id, name, full_name, prn, cgpa')
-                .in('id', studentIds)
-            : { data: [] };
-        const { data: progressData } = studentIds.length > 0
-            ? await supabase
-                .from('progress')
-                .select('student_id, score, value_text, created_at')
-                .in('student_id', studentIds)
-            : { data: [] };
-        const latestMarksByStudent = new Map();
-        (progressData || []).forEach((entry) => {
-            if (!latestMarksByStudent.has(entry.student_id)) {
-                latestMarksByStudent.set(entry.student_id, entry.value_text || (entry.score != null ? String(entry.score) : 'N/A'));
-            }
-        });
-        const batchNameById = new Map((batchData || []).map((batch) => [batch.id, batch.name]));
-        const userById = new Map((studentUsers || []).map((student) => [student.id, student]));
-        const reportRows = (assignmentData || []).map((assignment) => {
-            const matchedStudent = userById.get(assignment.student_id);
-            return {
-                batchName: batchNameById.get(assignment.batch_id) || 'Unknown Batch',
-                studentName: matchedStudent?.full_name || matchedStudent?.name || assignment.student_name || 'Unknown Student',
-                prn: matchedStudent?.prn || 'N/A',
-                marks: latestMarksByStudent.get(assignment.student_id) || String(matchedStudent?.cgpa ?? 'N/A'),
-            };
-        });
-        const lines = [
-            'Mentor Mentee Hub - Mentor Report',
-            '',
-            `Mentor Name: ${mentor.name}`,
-            `Mentor Email: ${mentor.email}`,
-            `Total Batches: ${mentor.batchCount}`,
-            `Total Students: ${mentor.studentCount}`,
-            '',
-            'Batch and Student Details',
-            '----------------------------------------',
-        ];
-        if (reportRows.length === 0) {
-            lines.push('No students assigned to this mentor yet.');
+
+    const toggleMentorSelection = (id) => {
+        setSelectedMentorIds((current) => current.includes(id) ? current.filter((i) => i !== id) : [...current, id]);
+    };
+
+    const toggleSelectAll = (checked) => {
+        if (checked) {
+            setSelectedMentorIds(mentors.map((m) => m.id));
         }
         else {
-            reportRows.forEach((row) => {
-                lines.push(`Batch: ${row.batchName}`);
-                lines.push(`Student: ${row.studentName}`);
-                lines.push(`PRN: ${row.prn}`);
-                lines.push(`Marks: ${row.marks}`);
-                lines.push('----------------------------------------');
-            });
+            setSelectedMentorIds([]);
         }
-        const blob = buildPdfBlob(lines);
+    };
+
+    const handleGenerateReport = async () => {
+        if (selectedMentorIds.length === 0)
+            return;
+        const allLines = [
+            'Mentor Mentee Hub - Multi-Mentor Report',
+            `Generated on: ${new Date().toLocaleDateString()}`,
+            '',
+        ];
+        for (const mentorId of selectedMentorIds) {
+            const mentor = mentors.find((item) => item.id === mentorId);
+            if (!mentor)
+                continue;
+            const { data: batchData, error: batchError } = await supabase
+                .from('batches')
+                .select('id, name')
+                .eq('mentor_id', mentorId)
+                .order('name', { ascending: true });
+            if (batchError) {
+                toast.error(`Unable to load batches for ${mentor.name}: ${batchError.message}`);
+                continue;
+            }
+            const batchIds = (batchData || []).map((batch) => batch.id);
+            const { data: assignmentData } = batchIds.length > 0
+                ? await supabase
+                    .from('batch_students')
+                    .select('batch_id, student_id, student_name')
+                    .in('batch_id', batchIds)
+                : { data: [] };
+            const studentIds = Array.from(new Set((assignmentData || []).map((row) => row.student_id).filter(Boolean)));
+            const { data: studentUsers } = studentIds.length > 0
+                ? await supabase
+                    .from('users')
+                    .select('id, name, full_name, prn, cgpa')
+                    .in('id', studentIds)
+                : { data: [] };
+            const { data: progressData } = studentIds.length > 0
+                ? await supabase
+                    .from('progress')
+                    .select('student_id, score, value_text, created_at')
+                    .in('student_id', studentIds)
+                : { data: [] };
+            const latestMarksByStudent = new Map();
+            (progressData || []).forEach((entry) => {
+                if (!latestMarksByStudent.has(entry.student_id)) {
+                    latestMarksByStudent.set(entry.student_id, entry.value_text || (entry.score != null ? String(entry.score) : 'N/A'));
+                }
+            });
+            const batchNameById = new Map((batchData || []).map((batch) => [batch.id, batch.name]));
+            const userById = new Map((studentUsers || []).map((student) => [student.id, student]));
+            const reportRows = (assignmentData || []).map((assignment) => {
+                const matchedStudent = userById.get(assignment.student_id);
+                return {
+                    batchName: batchNameById.get(assignment.batch_id) || 'Unknown Batch',
+                    studentName: matchedStudent?.full_name || matchedStudent?.name || assignment.student_name || 'Unknown Student',
+                    prn: matchedStudent?.prn || 'N/A',
+                    marks: latestMarksByStudent.get(assignment.student_id) || String(matchedStudent?.cgpa ?? 'N/A'),
+                };
+            });
+            allLines.push('========================================');
+            allLines.push(`MENTOR: ${mentor.name} (${mentor.email})`);
+            allLines.push(`Total Batches: ${mentor.batchCount}, Total Students: ${mentor.studentCount}`);
+            allLines.push('========================================');
+            allLines.push('');
+            if (reportRows.length === 0) {
+                allLines.push('No students assigned to this mentor yet.');
+            }
+            else {
+                reportRows.forEach((row) => {
+                    allLines.push(`Batch: ${row.batchName}`);
+                    allLines.push(`Student: ${row.studentName}`);
+                    allLines.push(`PRN: ${row.prn}`);
+                    allLines.push(`Marks: ${row.marks}`);
+                    allLines.push('----------------------------------------');
+                });
+            }
+            allLines.push('');
+            allLines.push('');
+        }
+        const blob = buildPdfBlob(allLines);
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = `${mentor.name.replace(/\s+/g, '-').toLowerCase()}-report.pdf`;
+        anchor.download = `mentors-report-${new Date().toISOString().split('T')[0]}.pdf`;
         anchor.click();
         URL.revokeObjectURL(url);
         setIsReportOpen(false);
     };
+
     const totalStudents = mentors.reduce((sum, mentor) => sum + mentor.studentCount, 0);
     const totalBatches = mentors.reduce((sum, mentor) => sum + mentor.batchCount, 0);
+
+    const handleDownloadExcel = async () => {
+        if (selectedMentorIds.length === 0)
+            return;
+        const columns = [
+            { key: 'mentorName', label: 'Mentor Name' },
+            { key: 'name', label: 'Student Name' },
+            { key: 'prn', label: 'PRN' },
+            { key: 'batch_name', label: 'Batch Name' },
+            { key: 'email', label: 'Email' },
+            { key: 'meetings_attended', label: 'Meetings Attended' },
+            { key: 'progress_count', label: 'No of Progress Added' },
+            { key: 'report_score', label: 'Report Score' },
+            { key: 'cgpa', label: 'CGPA' },
+            { key: 'joining_date', label: 'Joining Date in Batch' },
+            { key: 'ending_date', label: 'Ending Date in Batch' },
+        ];
+        const allRows = [];
+        for (const mentorId of selectedMentorIds) {
+            const mentor = mentors.find((item) => item.id === mentorId);
+            if (!mentor)
+                continue;
+            const { data: batchData, error: batchError } = await supabase
+                .from('batches')
+                .select('id, name')
+                .eq('mentor_id', mentorId)
+                .order('name', { ascending: true });
+            if (batchError) {
+                toast.error(`Unable to load batches for ${mentor.name}: ${batchError.message}`);
+                continue;
+            }
+            const batchIds = (batchData || []).map((batch) => batch.id);
+            const { data: assignmentData } = batchIds.length > 0
+                ? await supabase
+                    .from('batch_students')
+                    .select('batch_id, student_id, student_name, start_date, end_date')
+                    .in('batch_id', batchIds)
+                : { data: [] };
+            const studentIds = Array.from(new Set((assignmentData || []).map((row) => row.student_id).filter(Boolean)));
+            const { data: studentUsers } = studentIds.length > 0
+                ? await supabase
+                    .from('users')
+                    .select('id, name, email, prn, cgpa, created_at')
+                    .in('id', studentIds)
+                : { data: [] };
+            const { data: progressData } = studentIds.length > 0
+                ? await supabase
+                    .from('progress')
+                    .select('student_id, entry_type, score, value_text, created_at')
+                    .in('student_id', studentIds)
+                : { data: [] };
+            const { data: meetingsData } = batchIds.length > 0
+                ? await supabase
+                    .from('meetings')
+                    .select('id, batch_id, scheduled_at')
+                    .in('batch_id', batchIds)
+                : { data: [] };
+            const meetingIds = (meetingsData || []).map((m) => m.id);
+            const { data: attendanceData } = studentIds.length > 0 && meetingIds.length > 0
+                ? await supabase
+                    .from('meeting_attendance')
+                    .select('student_id, meeting_id, present')
+                    .in('student_id', studentIds)
+                    .in('meeting_id', meetingIds)
+                : { data: [] };
+            const latestReportScoreByStudent = new Map();
+            const progressCountByStudent = new Map();
+            (progressData || []).forEach((entry) => {
+                const count = progressCountByStudent.get(entry.student_id) || 0;
+                progressCountByStudent.set(entry.student_id, count + 1);
+                if (entry.entry_type === 'report') {
+                    if (!latestReportScoreByStudent.has(entry.student_id)) {
+                        latestReportScoreByStudent.set(entry.student_id, entry.value_text || (entry.score != null ? String(entry.score) : 'N/A'));
+                    }
+                }
+            });
+            const studentMap = new Map((studentUsers || []).map((s) => [s.id, s]));
+            const batchNameById = new Map((batchData || []).map((b) => [b.id, b.name]));
+            const formatDate = (val) => {
+                if (!val)
+                    return 'N/A';
+                const d = new Date(val);
+                if (isNaN(d.getTime()))
+                    return String(val);
+                return `'${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            };
+            const mentorRows = (assignmentData || []).map((assignment) => {
+                const s = studentMap.get(assignment.student_id);
+                const regDate = s?.created_at ? new Date(s.created_at) : new Date(0);
+                const studentMeetings = (meetingsData || []).filter((m) => m.batch_id === assignment.batch_id &&
+                    new Date(m.scheduled_at) >= regDate);
+                const attCount = (attendanceData || []).filter((att) => att.student_id === assignment.student_id &&
+                    att.present &&
+                    studentMeetings.some((sm) => sm.id === att.meeting_id)).length;
+                const rowData = {
+                    mentorName: mentor.name,
+                    name: s?.name || assignment.student_name || 'N/A',
+                    prn: s?.prn ? `'${s.prn}` : 'N/A',
+                    batch_name: batchNameById.get(assignment.batch_id) || 'N/A',
+                    email: s?.email || 'N/A',
+                    meetings_attended: `${attCount}/${studentMeetings.length}`,
+                    progress_count: progressCountByStudent.get(assignment.student_id) || 0,
+                    report_score: latestReportScoreByStudent.get(assignment.student_id) || 'N/A',
+                    cgpa: s?.cgpa ?? 'N/A',
+                    joining_date: formatDate(assignment.start_date),
+                    ending_date: formatDate(assignment.endDate || assignment.end_date),
+                };
+                return columns.map((col) => csvEscape(rowData[col.key])).join(',');
+            });
+            allRows.push(...mentorRows);
+        }
+        const header = columns.map((col) => csvEscape(col.label)).join(',');
+        const csvContent = `\uFEFF${[header, ...allRows].join('\n')}`;
+        const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `mentors-combined-report-${new Date().toISOString().split('T')[0]}.csv`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        setIsReportOpen(false);
+    };
+
     return (<div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -319,25 +474,36 @@ export default function AdminMentorsPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Generate Mentor Report</DialogTitle>
-                <DialogDescription>Select the mentor you want to export as a PDF.</DialogDescription>
+                <DialogDescription>Select the mentors you want to include in the report.</DialogDescription>
               </DialogHeader>
               <div className="mt-4 space-y-4">
-                <div className="space-y-2">
-                  <Label>Select Mentor</Label>
-                  <Select value={selectedMentorId} onValueChange={setSelectedMentorId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose mentor"/>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mentors.map((mentor) => (<SelectItem key={mentor.id} value={mentor.id}>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Select Mentors</Label>
+                    <div className="flex items-center gap-2">
+                       <Checkbox id="selectAll" checked={selectedMentorIds.length === mentors.length && mentors.length > 0} onCheckedChange={toggleSelectAll}/>
+                       <Label htmlFor="selectAll" className="text-xs text-muted-foreground cursor-pointer">Select All</Label>
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-60 overflow-y-auto rounded-md border border-border p-2 space-y-1">
+                    {mentors.map((mentor) => (<div key={mentor.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-secondary/50 rounded-sm transition-colors">
+                        <Checkbox id={`mentor-${mentor.id}`} checked={selectedMentorIds.includes(mentor.id)} onCheckedChange={() => toggleMentorSelection(mentor.id)}/>
+                        <Label htmlFor={`mentor-${mentor.id}`} className="flex-1 text-sm cursor-pointer py-1">
                           {mentor.name}
-                        </SelectItem>))}
-                    </SelectContent>
-                  </Select>
+                          <span className="ml-2 text-xs text-muted-foreground">({mentor.studentCount} students)</span>
+                        </Label>
+                      </div>))}
+                    {mentors.length === 0 && (<p className="text-center py-4 text-sm text-muted-foreground">No mentors added yet.</p>)}
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsReportOpen(false)}>Cancel</Button>
-                  <Button onClick={handleGenerateReport} disabled={!selectedMentorId}>Download PDF</Button>
+                  <Button variant="outline" onClick={() => {
+            setIsReportOpen(false);
+            setSelectedMentorIds([]);
+        }}>Cancel</Button>
+                  <Button variant="secondary" onClick={handleDownloadExcel} disabled={selectedMentorIds.length === 0}>Download Excel</Button>
+                  <Button onClick={handleGenerateReport} disabled={selectedMentorIds.length === 0}>Download PDF</Button>
                 </div>
               </div>
             </DialogContent>
@@ -469,16 +635,16 @@ export default function AdminMentorsPage() {
                 rows.push(<TableRow key={`${mentor.id}-details`} className="bg-secondary/20">
                         <TableCell colSpan={6} className="p-4">
                           {mentor.batches.length === 0 ? (<p className="text-sm text-muted-foreground">No batches assigned to this mentor yet.</p>) : (<div className="space-y-4">
-                              {mentor.batches.map((batch) => (<div key={batch.id} className="rounded-lg border bg-background p-4">
-                                  <p className="font-semibold text-foreground">{batch.name}</p>
-                                  {batch.students.length === 0 ? (<p className="mt-2 text-sm text-muted-foreground">No students in this batch yet.</p>) : (<div className="mt-3 flex flex-wrap gap-2">
-                                      {batch.students.map((student) => (<Link key={student.id} href={`/dashboard/mentor/students/${student.id}`} className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
-                                          <span>{student.name}</span>
-                                          <span className="text-muted-foreground">({student.prn})</span>
-                                        </Link>))}
-                                    </div>)}
-                                </div>))}
-                            </div>)}
+                               {mentor.batches.map((batch) => (<div key={batch.id} className="rounded-lg border bg-background p-4">
+                                   <p className="font-semibold text-foreground">{batch.name}</p>
+                                   {batch.students.length === 0 ? (<p className="mt-2 text-sm text-muted-foreground">No students in this batch yet.</p>) : (<div className="mt-3 flex flex-wrap gap-2">
+                                       {batch.students.map((student) => (<Link key={student.id} href={`/dashboard/mentor/students/${student.id}`} className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
+                                           <span>{student.name}</span>
+                                           <span className="text-muted-foreground">({student.prn})</span>
+                                         </Link>))}
+                                     </div>)}
+                                 </div>))}
+                             </div>)}
                         </TableCell>
                       </TableRow>);
             }
