@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, TrendingUp, Award, FileText, Upload, Paperclip } from 'lucide-react';
-import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Bar, BarChart, XAxis, YAxis, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -167,8 +167,18 @@ export default function StudentProgressPage() {
                 month: 'short',
             }),
             score: entry.numericValue,
+            title: entry.title,
         }));
     }, [progress]);
+
+    const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--secondary-foreground) / 0.8)'];
+    const participationData = useMemo(() => {
+        return [
+            { name: 'Marks/CGPA', value: marksCount },
+            { name: 'Skills/Certs', value: skillsCount },
+            { name: 'Reports/Achievements', value: reportsCount }
+        ].filter(d => d.value > 0);
+    }, [marksCount, skillsCount, reportsCount]);
 
     const hasMarksTrend = marksChartData.length > 0;
 
@@ -299,45 +309,131 @@ export default function StudentProgressPage() {
         </div>
       </Card>
 
-      <Card className="border-border bg-card p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Progress Tracker</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {hasMarksTrend
-            ? 'This bar chart shows your marks trend with each entry.'
-            : 'Add marks or CGPA entries to see a score trend graph here.'}
-            </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Participation Category Breakdown */}
+        <Card className="border-border bg-card p-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Participation Breakdown</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                A distribution of all your tracked progress entries.
+              </p>
+            </div>
+            <Badge className="bg-secondary/80 text-secondary-foreground">
+              {progress.length} total
+            </Badge>
           </div>
-          <Badge className="bg-primary/10 text-primary">
-            {progress.length} total entries
-          </Badge>
-        </div>
-
-        {!hasMarksTrend ? (
-          <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
-            Add a marks/CGPA entry to start a clean trend line graph.
-          </div>
-        ) : (
-          <ChartContainer className="h-72 w-full" config={{
-                score: {
-                    label: 'Marks / CGPA',
-                    color: 'hsl(var(--primary))',
-                },
+          
+          {progress.length === 0 ? (
+            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+              Add some progress to see your breakdown.
+            </div>
+          ) : (
+            <ChartContainer className="h-72 w-full" config={{
+                marks: { label: 'Marks', color: 'hsl(var(--primary))' },
+                skill: { label: 'Skills', color: 'hsl(var(--accent))' },
+                report: { label: 'Reports', color: 'hsl(var(--secondary-foreground))' },
             }}>
-            <BarChart data={marksChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
-              <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-              <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
-              <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-              <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(_, payload) => payload?.[0]?.payload?.label || 'Entry'} formatter={(value) => [
-                    `${value}`,
-                    'Marks / CGPA',
-                ]}/>}/>
-              <Bar dataKey="score" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} animationDuration={700} barSize={32}/>
-            </BarChart>
-          </ChartContainer>
-        )}
-      </Card>
+              <PieChart>
+                <Pie
+                  data={participationData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                  label
+                >
+                  {participationData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+              </PieChart>
+            </ChartContainer>
+          )}
+        </Card>
+
+        {/* Participation Activity Bar Graph */}
+        <Card className="border-border bg-card p-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Participation Activity</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Bar graph representation of your tracked entries.
+              </p>
+            </div>
+            <Badge className="bg-primary/10 text-primary">
+              Categories
+            </Badge>
+          </div>
+          
+          {progress.length === 0 ? (
+            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+              Add some progress to see activity.
+            </div>
+          ) : (
+            <ChartContainer className="h-72 w-full" config={{
+                marks: { label: 'Marks', color: 'hsl(var(--primary))' },
+                skill: { label: 'Skills', color: 'hsl(var(--accent))' },
+                report: { label: 'Reports', color: 'hsl(var(--secondary-foreground))' },
+            }}>
+              <BarChart data={participationData} margin={{ left: -10, right: 12, top: 12, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={40} />
+                <ChartTooltip cursor={{ fill: 'var(--color-secondary)', opacity: 0.2 }} content={<ChartTooltipContent />} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} animationDuration={700}>
+                  {participationData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          )}
+        </Card>
+      </div>
+
+      {/* CGPA Trend Line Chart - Full width */}
+      <Card className="border-border bg-card p-6 mt-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">CGPA / Marks Trend</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {hasMarksTrend
+              ? 'Your calculated performance evolution over time.'
+              : 'Add marks or CGPA entries to see a trend line.'}
+              </p>
+            </div>
+            {hasMarksTrend && (
+                <Badge className="bg-primary/10 text-primary">
+                    {marksCount} marks
+                </Badge>
+            )}
+          </div>
+
+          {!hasMarksTrend ? (
+            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+              Add a marks/CGPA entry to start a clean trend line.
+            </div>
+          ) : (
+            <ChartContainer className="h-72 w-full" config={{
+                  score: {
+                      label: 'Marks / CGPA',
+                      color: 'hsl(var(--primary))',
+                  },
+              }}>
+              <LineChart data={marksChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={40} />
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(label, payload) => payload?.[0]?.payload?.title || label} />}/>
+                <Line type="monotone" dataKey="score" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={700} />
+              </LineChart>
+            </ChartContainer>
+          )}
+        </Card>
 
       <Card className="border-border">
         <div className="p-6">

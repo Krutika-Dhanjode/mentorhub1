@@ -177,7 +177,7 @@ export default function StudentBatchesPage() {
                       {assignment.classmates.length} students
                     </Badge>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-2 max-h-[160px] overflow-y-auto pr-2">
                     {assignment.classmates.map((student) => (<div key={`${assignment.batchId}-${student.id}`} className="rounded-xl border border-border bg-card p-4">
                         <p className="font-medium text-foreground">{student.name}</p>
                         <p className="mt-1 text-sm text-muted-foreground">

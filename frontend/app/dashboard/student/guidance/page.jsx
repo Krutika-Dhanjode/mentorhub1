@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquare, Paperclip, Send } from "lucide-react";
+import { MessageSquare, Paperclip, Send, Pencil, Trash, X, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,11 @@ export default function StudentGuidancePage() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    
+    // Edit state
+    const [editingMessageId, setEditingMessageId] = useState(null);
+    const [editDraft, setEditDraft] = useState("");
+
     const selectedMentor = useMemo(() => mentors.find((mentor) => mentor.id === selectedMentorId) || null, [mentors, selectedMentorId]);
     const fetchMentors = async () => {
         if (!user)
@@ -194,6 +199,38 @@ export default function StudentGuidancePage() {
         setSelectedFile(null);
         await fetchMessages(selectedMentorId);
     };
+
+    const handleEditMessage = async (messageId) => {
+        if (!editDraft.trim()) return;
+        const { error } = await supabase
+            .from("guidance_messages")
+            .update({ message: editDraft })
+            .eq("id", messageId);
+            
+        if (error) {
+            toast.error("Unable to update message: " + error.message);
+        } else {
+            toast.success("Message updated");
+            setEditingMessageId(null);
+            fetchMessages(selectedMentorId);
+        }
+    };
+
+    const handleDeleteMessage = async (messageId) => {
+        if (!confirm("Are you sure you want to delete this message?")) return;
+        const { error } = await supabase
+            .from("guidance_messages")
+            .delete()
+            .eq("id", messageId);
+            
+        if (error) {
+            toast.error("Unable to delete message: " + error.message);
+        } else {
+            toast.success("Message deleted");
+            fetchMessages(selectedMentorId);
+        }
+    };
+
     if (loading || dataLoading) {
         return (<Card className="p-6">
         <p className="text-muted-foreground">Loading guidance...</p>
@@ -227,7 +264,7 @@ export default function StudentGuidancePage() {
             </div>
           </Card>
 
-          <Card className="flex min-h-[560px] flex-col p-4">
+          <Card className="flex h-[750px] flex-col p-4">
             <div className="border-b pb-4">
               <h2 className="text-lg font-semibold">
                 {selectedMentor?.name || "Select a mentor"}
@@ -242,10 +279,28 @@ export default function StudentGuidancePage() {
                   <MessageSquare className="mb-3 h-10 w-10 opacity-40"/>
                   <p>No guidance messages yet.</p>
                   <p className="text-sm">Ask your first question below.</p>
-                </div>) : (messages.map((message) => (<div key={message.id} className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.senderRole === "student"
+                </div>) : (messages.map((message) => (<div key={message.id} className={`group relative max-w-[80%] rounded-2xl px-4 py-3 ${message.senderRole === "student"
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"}`}>
-                    <p className="whitespace-pre-wrap text-sm">{message.message}</p>
+                    {editingMessageId === message.id ? (
+                      <div className="flex flex-col gap-2">
+                        <Textarea 
+                          className="min-h-20 bg-background text-foreground"
+                          value={editDraft} 
+                          onChange={(e) => setEditDraft(e.target.value)} 
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => setEditingMessageId(null)}>
+                            <X className="mr-1 h-4 w-4"/> Cancel
+                          </Button>
+                          <Button size="sm" onClick={() => handleEditMessage(message.id)} variant="default" className="bg-blue-600 hover:bg-blue-700 text-white">
+                            <Check className="mr-1 h-4 w-4"/> Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="whitespace-pre-wrap text-sm">{message.message}</p>
                     {message.attachmentUrl && (<div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2">
                         {message.attachmentType?.startsWith("image/") ? (<a href={message.attachmentUrl} target="_blank" rel="noreferrer" className="block">
                             <img src={message.attachmentUrl} alt={message.attachmentName || "Guidance attachment"} className="max-h-52 rounded-md object-contain"/>
@@ -254,26 +309,44 @@ export default function StudentGuidancePage() {
                             {message.attachmentName || "Open attachment"}
                           </a>)}
                       </div>)}
+                    <div className="mt-2 flex items-center justify-between">
                     <p className={`mt-2 text-[11px] ${message.senderRole === "student"
                     ? "text-primary-foreground/80"
                     : "text-muted-foreground"}`}>
                       {new Date(message.createdAt).toLocaleString()}
                     </p>
+                      {message.senderRole === "student" && (
+                        <div className="flex items-center gap-2 text-primary-foreground/80">
+                          <button onClick={() => { setEditingMessageId(message.id); setEditDraft(message.message); }} className="hover:text-white transition-colors" title="Edit message">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => handleDeleteMessage(message.id)} className="hover:text-red-300" title="Delete message">
+                            <Trash className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
                   </div>)))}
             </div>
 
             <div className="border-t pt-4">
-              <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Describe your issue or question for your mentor..." className="min-h-28"/>
-              <div className="mt-3 space-y-2">
-                <Input type="file" accept="application/pdf,image/*" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}/>
-                <p className="text-xs text-muted-foreground">
-                  {selectedFile ? `Selected: ${selectedFile.name}` : "Attach a PDF or image (optional, max 8MB)."}
-                </p>
-              </div>
-              <div className="mt-3 flex justify-end">
+              <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Describe your issue or question for your mentor..." className="min-h-16"/>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Input type="file" id="file-upload" className="peer sr-only" accept="application/pdf,image/*" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}/>
+                  <label htmlFor="file-upload" className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-colors hover:bg-secondary/80">
+                    <Paperclip className="h-4 w-4" />
+                    <span className="sr-only">Attach file</span>
+                  </label>
+                  <p className="max-w-[200px] truncate text-xs text-muted-foreground sm:max-w-xs">
+                    {selectedFile ? selectedFile.name : "Attach file (optional)"}
+                  </p>
+                </div>
                 <Button onClick={handleSend} disabled={sending || !selectedMentorId || (!draft.trim() && !selectedFile)}>
                   <Send className="mr-2 h-4 w-4"/>
-                  {sending ? "Sending..." : "Send Query"}
+                  {sending ? "Sending..." : "Send"}
                 </Button>
               </div>
             </div>
