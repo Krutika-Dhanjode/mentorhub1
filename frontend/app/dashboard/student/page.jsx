@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Upload, TrendingUp, MessageSquare, Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,20 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
-const cgpaData = [
-    { semester: 'S1', cgpa: 7.8 },
-    { semester: 'S2', cgpa: 8.1 },
-    { semester: 'S3', cgpa: 8.3 },
-    { semester: 'S4', cgpa: 8.5 },
-    { semester: 'S5', cgpa: 8.7 },
-    { semester: 'S6', cgpa: 8.9 },
-];
 export default function StudentDashboard() {
     const { user, loading } = useUser();
     const supabase = createClient();
     const [meetings, setMeetings] = useState([]);
     const [batches, setBatches] = useState([]);
     const [studentData, setStudentData] = useState(null);
+    const [progressEntries, setProgressEntries] = useState([]);
     const [dataLoading, setDataLoading] = useState(true);
     // Fetch student profile and batches
     useEffect(() => {
@@ -62,6 +55,14 @@ export default function StudentDashboard() {
                     setBatches(batchData || []);
                 }
             }
+            // Fetch progress entries for CGPA chart
+            const { data: progressData } = await supabase
+                .from('progress')
+                .select('*')
+                .eq('student_id', user.id)
+                .order('created_at', { ascending: true });
+            setProgressEntries(progressData || []);
+
             setDataLoading(false);
         };
         if (!loading && user)
@@ -241,25 +242,8 @@ export default function StudentDashboard() {
         </Card>
       </div>
 
-      {/* CGPA Progress Chart */}
-      <Card className="p-6 border-border">
-        <h3 className="text-lg font-semibold text-foreground mb-4">CGPA Progress</h3>
-        <div className="w-full h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={cgpaData} margin={{ left: 16, right: 16, top: 16, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)"/>
-              <XAxis dataKey="semester" stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false}/>
-              <YAxis stroke="var(--color-muted-foreground)" domain={[7, 10]} tickLine={false} axisLine={false}/>
-              <Tooltip contentStyle={{
-            backgroundColor: 'var(--color-card)',
-            border: `1px solid var(--color-border)`,
-            borderRadius: '8px',
-        }}/>
-              <Bar dataKey="cgpa" fill="var(--color-primary)" radius={[8, 8, 0, 0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      {/* CGPA Progress Chart (from database) */}
+      <CgpaChart progressEntries={progressEntries} />
 
       {/* Recent Meetings */}
       <div className="space-y-4">
@@ -324,4 +308,55 @@ export default function StudentDashboard() {
         </div>
       </Card>
     </div>);
+}
+
+function CgpaChart({ progressEntries }) {
+    const cgpaData = useMemo(() => {
+        return progressEntries
+            .filter(entry => {
+                const type = entry.entry_type || entry.certification_type || '';
+                return type === 'marks' || type === 'cgpa';
+            })
+            .filter(entry => entry.score != null)
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            .map((entry, index) => ({
+                semester: entry.title || `S${index + 1}`,
+                cgpa: Number(entry.score),
+            }));
+    }, [progressEntries]);
+
+    if (cgpaData.length === 0) {
+        return (
+            <Card className="p-6 border-border">
+                <h3 className="text-lg font-semibold text-foreground mb-4">CGPA Progress</h3>
+                <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+                    Add CGPA entries in your Progress section to see the chart here.
+                </div>
+            </Card>
+        );
+    }
+
+    const minCgpa = Math.max(0, Math.floor(Math.min(...cgpaData.map(d => d.cgpa))) - 1);
+    const maxCgpa = Math.min(10, Math.ceil(Math.max(...cgpaData.map(d => d.cgpa))) + 1);
+
+    return (
+        <Card className="p-6 border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">CGPA Progress</h3>
+            <div className="w-full h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={cgpaData} margin={{ left: 16, right: 16, top: 16, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)"/>
+                        <XAxis dataKey="semester" stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false}/>
+                        <YAxis stroke="var(--color-muted-foreground)" domain={[minCgpa, maxCgpa]} tickLine={false} axisLine={false}/>
+                        <Tooltip contentStyle={{
+                            backgroundColor: 'var(--color-card)',
+                            border: `1px solid var(--color-border)`,
+                            borderRadius: '8px',
+                        }}/>
+                        <Bar dataKey="cgpa" fill="var(--color-primary)" radius={[8, 8, 0, 0]}/>
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </Card>
+    );
 }

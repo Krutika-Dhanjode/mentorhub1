@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Users, Calendar, CalendarPlus, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare, Hash } from 'lucide-react';
+import { Menu, X, Users, Calendar, CalendarPlus, Settings, LogOut, TrendingUp, UserCog, Layers3, MessageSquare, Hash, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 export function AppSidebar({ userRole = 'Admin' }) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -24,6 +24,8 @@ export function AppSidebar({ userRole = 'Admin' }) {
         else if (normalizedRole === 'mentor') {
             return [
                 { label: 'Students', href: '/dashboard/mentor/students', icon: <Users className="w-5 h-5"/> },
+                { label: 'Certifications', href: '/dashboard/mentor/certifications', icon: <Award className="w-5 h-5"/> },
+                { label: 'Analytics', href: '/dashboard/mentor/analytics', icon: <TrendingUp className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/mentor/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Guidance', href: '/dashboard/mentor/guidance', icon: <MessageSquare className="w-5 h-5"/> },
                 { label: 'Batch Chat', href: '/dashboard/mentor/chat', icon: <Hash className="w-5 h-5"/> },
