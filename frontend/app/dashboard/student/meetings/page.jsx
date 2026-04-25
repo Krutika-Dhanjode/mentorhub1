@@ -125,9 +125,9 @@ export default function StudentMeetingsPage() {
               No upcoming meetings are scheduled for your batches yet.
             </p>
           </Card>) : (<div className="space-y-4">
-            {upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="border-border p-6">
+            {upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="border-border p-3">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     <div>
                       <h3 className="text-xl font-semibold text-foreground">{meeting.title}</h3>
 

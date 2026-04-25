@@ -549,25 +549,25 @@ export default function HodSchedulePage() {
         <h2 className="text-xl font-semibold">Upcoming Meetings</h2>
 
         {loading ? (
-          <Card className="p-4">
+          <Card className="p-3">
             <p>Loading meetings...</p>
           </Card>
         ) : mentors.length === 0 ? (
-          <Card className="p-4">
+          <Card className="p-3">
             <p className="text-muted-foreground">
               No mentors found for this HOD. Please add mentors from the
               Mentors page first.
             </p>
           </Card>
         ) : upcomingMeetings.length === 0 ? (
-          <Card className="p-4">
+          <Card className="p-3">
             <p className="text-muted-foreground">No upcoming meetings.</p>
           </Card>
         ) : (
           upcomingMeetings.map((meeting) => (
-            <Card key={meeting.id} className="p-4">
-              <div className="space-y-2">
-                <p className="font-bold">{meeting.title}</p>
+            <Card key={meeting.id} className="p-3">
+              <div className="space-y-1">
+                <p className="font-bold text-base">{meeting.title}</p>
                 <p className="text-sm text-muted-foreground">
                   Mentor: {meeting.mentorName}
                 </p>
@@ -618,14 +618,14 @@ export default function HodSchedulePage() {
         <h2 className="text-xl font-semibold">Past Meetings</h2>
 
         {pastMeetings.length === 0 ? (
-          <Card className="p-4">
+          <Card className="p-3">
             <p className="text-muted-foreground">No past meetings yet.</p>
           </Card>
         ) : (
           pastMeetings.map((meeting) => (
-            <Card key={meeting.id} className="p-4">
+            <Card key={meeting.id} className="p-3">
               <div className="space-y-1">
-                <p className="font-bold">{meeting.title}</p>
+                <p className="font-bold text-base">{meeting.title}</p>
                 <p className="text-sm text-muted-foreground">
                   Mentor: {meeting.mentorName}
                 </p>
