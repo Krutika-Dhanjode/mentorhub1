@@ -31,6 +31,7 @@ export default function StudentProgressPage() {
         title: '',
         description: '',
         value: '',
+        certificationType: '',
     });
 
     const fetchProgress = async () => {
@@ -44,7 +45,7 @@ export default function StudentProgressPage() {
         setMentorScore(studentProfile?.mentor_report_score ?? null);
         const { data, error } = await supabase
             .from('progress')
-            .select('id, entry_type, title, description, score, value_text, attachments, attachment_names, created_at, date')
+            .select('*')
             .eq('student_id', user.id)
             .order('created_at', { ascending: false });
         if (error) {
@@ -53,17 +54,32 @@ export default function StudentProgressPage() {
             setDataLoading(false);
             return;
         }
-        const formattedEntries = (data || []).map((entry) => ({
-            id: entry.id,
-            entryType: entry.entry_type,
-            title: entry.title,
-            description: entry.description || 'No description provided',
-            valueText: entry.value_text || (entry.score != null ? String(entry.score) : ''),
-            numericValue: entry.score != null ? Number(entry.score) : null,
-            attachmentNames: entry.attachment_names || [],
-            attachmentUrls: entry.attachments || [],
-            createdAt: entry.created_at || entry.date,
-        }));
+        const formattedEntries = (data || []).map((entry) => {
+            const typeValue = entry.entry_type || entry.certification_type || 'achievement';
+            const certificationType = typeValue === 'marks' ? 'cgpa'
+                : typeValue === 'skill' || typeValue === 'certification' ? 'certification'
+                : ['hackathon', 'sports', 'competition', 'achievement'].includes(typeValue)
+                    ? typeValue
+                    : 'achievement';
+            const isCgpa = certificationType === 'cgpa';
+
+            return {
+                id: entry.id,
+                entryType: typeValue,
+                certificationType,
+                title: entry.title,
+                description: entry.description || 'No description provided',
+                valueText: entry.value_text || (entry.score != null ? String(entry.score) : ''),
+                numericValue: entry.score != null ? Number(entry.score) : null,
+                attachmentNames: entry.attachment_names || [],
+                attachmentUrls: entry.attachments || [],
+                createdAt: entry.created_at || entry.date,
+                verificationStatus: entry.verification_status || 'pending',
+                mentorScore: !isCgpa && entry.score != null ? Number(entry.score) : null,
+                mentorFeedback: entry.mentor_feedback || null,
+                verifiedAt: entry.verified_at || null,
+            };
+        });
         setProgress(formattedEntries);
         setDataLoading(false);
     };
@@ -113,8 +129,8 @@ export default function StudentProgressPage() {
             entry_type: newEntry.type,
             title: newEntry.title,
             description: newEntry.description,
-            score: newEntry.type === 'marks' && newEntry.value ? Number(newEntry.value) || null : null,
-            value_text: newEntry.type === 'marks' ? newEntry.value : null,
+            score: newEntry.value ? Number(newEntry.value) : null,
+            value_text: newEntry.value || null,
             attachments: attachmentUrl ? [attachmentUrl] : [],
             attachment_names: attachmentName ? [attachmentName] : [],
         });
@@ -132,10 +148,19 @@ export default function StudentProgressPage() {
 
     const getTypeIcon = (type) => {
         switch (type) {
+            case 'cgpa':
             case 'marks':
                 return <TrendingUp className="w-5 h-5"/>;
+            case 'certification':
             case 'skill':
                 return <Award className="w-5 h-5"/>;
+            case 'hackathon':
+                return <Award className="w-5 h-5"/>;
+            case 'sports':
+                return <Award className="w-5 h-5"/>;
+            case 'competition':
+                return <Award className="w-5 h-5"/>;
+            case 'achievement':
             case 'report':
                 return <FileText className="w-5 h-5"/>;
         }
@@ -143,34 +168,103 @@ export default function StudentProgressPage() {
 
     const getTypeColor = (type) => {
         switch (type) {
-            case 'marks':
+            case 'cgpa':
                 return 'bg-primary/20 text-primary';
-            case 'skill':
+            case 'certification':
                 return 'bg-accent/20 text-accent';
-            case 'report':
+            case 'hackathon':
+                return 'bg-orange-500/20 text-orange-600';
+            case 'sports':
+                return 'bg-green-500/20 text-green-600';
+            case 'competition':
+                return 'bg-purple-500/20 text-purple-600';
+            case 'achievement':
                 return 'bg-secondary text-foreground';
         }
     };
 
-    const marksCount = useMemo(() => progress.filter((entry) => entry.entryType === 'marks').length, [progress]);
-    const skillsCount = useMemo(() => progress.filter((entry) => entry.entryType === 'skill').length, [progress]);
-    const reportsCount = useMemo(() => progress.filter((entry) => entry.entryType === 'report').length, [progress]);
-    
-    const marksChartData = useMemo(() => {
+    const cgpaCount = useMemo(() => progress.filter((entry) => entry.certificationType === 'cgpa').length, [progress]);
+    const certificationsCount = useMemo(() => progress.filter((entry) => entry.certificationType === 'certification').length, [progress]);
+    const hackathonsCount = useMemo(() => progress.filter((entry) => entry.certificationType === 'hackathon').length, [progress]);
+    const sportsCount = useMemo(() => progress.filter((entry) => entry.certificationType === 'sports').length, [progress]);
+    const competitionsCount = useMemo(() => progress.filter((entry) => entry.certificationType === 'competition').length, [progress]);
+    const achievementsCount = useMemo(() => progress.filter((entry) => entry.certificationType === 'achievement').length, [progress]);
+
+    const cgpaChartData = useMemo(() => {
         return [...progress]
-            .filter((entry) => entry.entryType === 'marks' && entry.numericValue != null)
+            .filter((entry) => entry.certificationType === 'cgpa' && entry.numericValue != null)
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
             .map((entry, index) => ({
-            label: `Entry ${index + 1}`,
-            date: new Date(entry.createdAt).toLocaleDateString(undefined, {
-                day: '2-digit',
-                month: 'short',
-            }),
-            score: entry.numericValue,
-        }));
+                label: `Entry ${index + 1}`,
+                date: new Date(entry.createdAt).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'short',
+                }),
+                score: entry.numericValue,
+            }));
     }, [progress]);
 
-    const hasMarksTrend = marksChartData.length > 0;
+    const hackathonChartData = useMemo(() => {
+        return [...progress]
+            .filter((entry) => entry.certificationType === 'hackathon' && entry.verificationStatus === 'verified' && entry.mentorScore != null)
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .map((entry, index) => ({
+                label: entry.title,
+                date: new Date(entry.createdAt).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'short',
+                }),
+                score: entry.mentorScore,
+            }));
+    }, [progress]);
+
+    const sportsChartData = useMemo(() => {
+        return [...progress]
+            .filter((entry) => entry.certificationType === 'sports' && entry.verificationStatus === 'verified' && entry.mentorScore != null)
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .map((entry, index) => ({
+                label: entry.title,
+                date: new Date(entry.createdAt).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'short',
+                }),
+                score: entry.mentorScore,
+            }));
+    }, [progress]);
+
+    const competitionChartData = useMemo(() => {
+        return [...progress]
+            .filter((entry) => entry.certificationType === 'competition' && entry.verificationStatus === 'verified' && entry.mentorScore != null)
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .map((entry, index) => ({
+                label: entry.title,
+                date: new Date(entry.createdAt).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'short',
+                }),
+                score: entry.mentorScore,
+            }));
+    }, [progress]);
+
+    const achievementChartData = useMemo(() => {
+        return [...progress]
+            .filter((entry) => entry.certificationType === 'achievement' && entry.verificationStatus === 'verified' && entry.mentorScore != null)
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .map((entry, index) => ({
+                label: entry.title,
+                date: new Date(entry.createdAt).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'short',
+                }),
+                score: entry.mentorScore,
+            }));
+    }, [progress]);
+
+    const hasCgpaTrend = cgpaChartData.length > 0;
+    const hasHackathonData = hackathonChartData.length > 0;
+    const hasSportsData = sportsChartData.length > 0;
+    const hasCompetitionData = competitionChartData.length > 0;
+    const hasAchievementData = achievementChartData.length > 0;
 
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground p-6">Loading your progress...</p>;
@@ -206,9 +300,12 @@ export default function StudentProgressPage() {
                     <SelectValue placeholder="Select type"/>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="marks">Marks / CGPA</SelectItem>
-                    <SelectItem value="skill">Skill / Certification</SelectItem>
-                    <SelectItem value="report">Report / Achievement</SelectItem>
+                    <SelectItem value="certification">Certification</SelectItem>
+                    <SelectItem value="cgpa">CGPA</SelectItem>
+                    <SelectItem value="hackathon">Hackathon</SelectItem>
+                    <SelectItem value="sports">Sports</SelectItem>
+                    <SelectItem value="competition">Competition</SelectItem>
+                    <SelectItem value="achievement">Achievement</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -218,9 +315,9 @@ export default function StudentProgressPage() {
                 <Input id="title" placeholder="Semester 6 Results, AWS Certification, Internship Report" value={newEntry.title} onChange={(event) => setNewEntry({ ...newEntry, title: event.target.value })} className="bg-card border-border"/>
               </div>
 
-              {newEntry.type === 'marks' && (<div className="space-y-2">
-                  <Label htmlFor="value">CGPA / Marks</Label>
-                  <Input id="value" placeholder="8.9 or 89%" value={newEntry.value} onChange={(event) => setNewEntry({ ...newEntry, value: event.target.value })} className="bg-card border-border"/>
+              {newEntry.type && (<div className="space-y-2">
+                  <Label htmlFor="value">{newEntry.type === 'cgpa' ? 'CGPA' : 'Score (out of 10)'}</Label>
+                  <Input id="value" placeholder={newEntry.type === 'cgpa' ? '8.9' : '8.5'} type="number" step="0.1" min="0" max="10" value={newEntry.value} onChange={(event) => setNewEntry({ ...newEntry, value: event.target.value })} className="bg-card border-border"/>
                 </div>)}
 
               <div className="space-y-2">
@@ -259,8 +356,8 @@ export default function StudentProgressPage() {
               <TrendingUp className="w-6 h-6 text-primary"/>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm font-medium">Marks Entries</p>
-              <h3 className="text-2xl font-bold text-foreground">{marksCount}</h3>
+              <p className="text-muted-foreground text-sm font-medium">CGPA Entries</p>
+              <h3 className="text-2xl font-bold text-foreground">{cgpaCount}</h3>
             </div>
           </div>
         </Card>
@@ -271,8 +368,44 @@ export default function StudentProgressPage() {
               <Award className="w-6 h-6 text-accent"/>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm font-medium">Skills Added</p>
-              <h3 className="text-2xl font-bold text-foreground">{skillsCount}</h3>
+              <p className="text-muted-foreground text-sm font-medium">Certifications</p>
+              <h3 className="text-2xl font-bold text-foreground">{certificationsCount}</h3>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-border bg-card">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-500/20 rounded-lg">
+              <Award className="w-6 h-6 text-orange-600"/>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">Hackathons</p>
+              <h3 className="text-2xl font-bold text-foreground">{hackathonsCount}</h3>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-border bg-card">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-500/20 rounded-lg">
+              <Award className="w-6 h-6 text-green-600"/>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">Sports</p>
+              <h3 className="text-2xl font-bold text-foreground">{sportsCount}</h3>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-border bg-card">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-500/20 rounded-lg">
+              <Award className="w-6 h-6 text-purple-600"/>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">Competitions</p>
+              <h3 className="text-2xl font-bold text-foreground">{competitionsCount}</h3>
             </div>
           </div>
         </Card>
@@ -283,8 +416,8 @@ export default function StudentProgressPage() {
               <FileText className="w-6 h-6 text-foreground"/>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm font-medium">Reports / Achievements</p>
-              <h3 className="text-2xl font-bold text-foreground">{reportsCount}</h3>
+              <p className="text-muted-foreground text-sm font-medium">Achievements</p>
+              <h3 className="text-2xl font-bold text-foreground">{achievementsCount}</h3>
             </div>
           </div>
         </Card>
@@ -299,45 +432,231 @@ export default function StudentProgressPage() {
         </div>
       </Card>
 
-      <Card className="border-border bg-card p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Progress Tracker</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {hasMarksTrend
-            ? 'This bar chart shows your marks trend with each entry.'
-            : 'Add marks or CGPA entries to see a score trend graph here.'}
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border-border bg-card p-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">CGPA Trend</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {hasCgpaTrend
+              ? 'Your CGPA progress over time.'
+              : 'Add CGPA entries to see your academic trend here.'}
+              </p>
+            </div>
+            <Badge className="bg-primary/10 text-primary">
+              {cgpaChartData.length} entries
+            </Badge>
           </div>
-          <Badge className="bg-primary/10 text-primary">
-            {progress.length} total entries
-          </Badge>
-        </div>
 
-        {!hasMarksTrend ? (
-          <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
-            Add a marks/CGPA entry to start a clean trend line graph.
+          {!hasCgpaTrend ? (
+            <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+              Add a CGPA entry to start tracking your academic progress.
+            </div>
+          ) : (
+            <ChartContainer className="h-64 w-full" config={{
+                  score: {
+                      label: 'CGPA',
+                      color: 'hsl(var(--primary))',
+                  },
+              }}>
+              <BarChart data={cgpaChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(_, payload) => payload?.[0]?.payload?.label || 'Entry'} formatter={(value) => [
+                      `${value}`,
+                      'CGPA',
+                  ]}/>}/>
+                <Bar dataKey="score" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} animationDuration={700} barSize={24}/>
+              </BarChart>
+            </ChartContainer>
+          )}
+        </Card>
+
+        <Card className="border-border bg-card p-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Overall Performance</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Combined view of all your activities and achievements.
+              </p>
+            </div>
+            <Badge className="bg-accent/10 text-accent">
+              {progress.length} total entries
+            </Badge>
           </div>
-        ) : (
-          <ChartContainer className="h-72 w-full" config={{
-                score: {
-                    label: 'Marks / CGPA',
-                    color: 'hsl(var(--primary))',
-                },
-            }}>
-            <BarChart data={marksChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
-              <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-              <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
-              <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-              <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(_, payload) => payload?.[0]?.payload?.label || 'Entry'} formatter={(value) => [
-                    `${value}`,
-                    'Marks / CGPA',
-                ]}/>}/>
-              <Bar dataKey="score" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} animationDuration={700} barSize={32}/>
-            </BarChart>
-          </ChartContainer>
+
+          <div className="space-y-4">
+            {progress.slice(0, 5).map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/20">
+                <div className="flex items-center gap-3">
+                  <Badge className={getTypeColor(entry.certificationType)}>
+                    {getTypeIcon(entry.certificationType)}
+                  </Badge>
+                  <div>
+                    <p className="font-medium text-sm">{entry.title}</p>
+                    <p className="text-xs text-muted-foreground">{entry.certificationType}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {entry.certificationType === 'cgpa' ? (
+                    <Badge className="bg-primary/20 text-primary">
+                      {entry.valueText}
+                    </Badge>
+                  ) : entry.mentorScore ? (
+                    <Badge className="bg-green-500/20 text-green-600">
+                      {entry.mentorScore}/10
+                    </Badge>
+                  ) : entry.verificationStatus === 'pending' ? (
+                    <Badge className="bg-yellow-500/20 text-yellow-600">
+                      Pending
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-blue-500/20 text-blue-600">
+                      {entry.verificationStatus}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* Activity-specific Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {hasHackathonData && (
+          <Card className="border-border bg-card p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Hackathon Performance</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your hackathon participation scores.
+                </p>
+              </div>
+              <Badge className="bg-orange-500/20 text-orange-600">
+                {hackathonChartData.length} entries
+              </Badge>
+            </div>
+            <ChartContainer className="h-48 w-full" config={{
+                  score: {
+                      label: 'Score',
+                      color: 'hsl(25, 95%, 53%)',
+                  },
+              }}>
+              <BarChart data={hackathonChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
+                      `${value}/10`,
+                      'Score',
+                  ]}/>}/>
+                <Bar dataKey="score" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
+              </BarChart>
+            </ChartContainer>
+          </Card>
         )}
-      </Card>
+
+        {hasSportsData && (
+          <Card className="border-border bg-card p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Sports Performance</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your sports activity scores.
+                </p>
+              </div>
+              <Badge className="bg-green-500/20 text-green-600">
+                {sportsChartData.length} entries
+              </Badge>
+            </div>
+            <ChartContainer className="h-48 w-full" config={{
+                  score: {
+                      label: 'Score',
+                      color: 'hsl(142, 76%, 36%)',
+                  },
+              }}>
+              <BarChart data={sportsChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 2, 4, 6, 8, 10]}/>
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
+                      `${value}/10`,
+                      'Score',
+                  ]}/>}/>
+                <Bar dataKey="score" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
+              </BarChart>
+            </ChartContainer>
+          </Card>
+        )}
+
+        {hasCompetitionData && (
+          <Card className="border-border bg-card p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Competition Performance</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your competition participation scores.
+                </p>
+              </div>
+              <Badge className="bg-purple-500/20 text-purple-600">
+                {competitionChartData.length} entries
+              </Badge>
+            </div>
+            <ChartContainer className="h-48 w-full" config={{
+                  score: {
+                      label: 'Score',
+                      color: 'hsl(262, 83%, 58%)',
+                  },
+              }}>
+              <BarChart data={competitionChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
+                      `${value}/10`,
+                      'Score',
+                  ]}/>}/>
+                <Bar dataKey="score" fill="hsl(262, 83%, 58%)" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
+              </BarChart>
+            </ChartContainer>
+          </Card>
+        )}
+
+        {hasAchievementData && (
+          <Card className="border-border bg-card p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Achievement Scores</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your general achievement scores.
+                </p>
+              </div>
+              <Badge className="bg-secondary text-foreground">
+                {achievementChartData.length} entries
+              </Badge>
+            </div>
+            <ChartContainer className="h-48 w-full" config={{
+                  score: {
+                      label: 'Score',
+                      color: 'hsl(var(--secondary))',
+                  },
+              }}>
+              <BarChart data={achievementChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
+                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
+                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
+                      `${value}/10`,
+                      'Score',
+                  ]}/>}/>
+                <Bar dataKey="score" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
+              </BarChart>
+            </ChartContainer>
+          </Card>
+        )}
+      </div>
 
       <Card className="border-border">
         <div className="p-6">
@@ -347,33 +666,54 @@ export default function StudentProgressPage() {
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-foreground font-semibold">Type</TableHead>
                 <TableHead className="text-foreground font-semibold">Title</TableHead>
-                <TableHead className="text-foreground font-semibold">Description</TableHead>
+                <TableHead className="text-foreground font-semibold">Status</TableHead>
+                <TableHead className="text-foreground font-semibold">Score</TableHead>
                 <TableHead className="text-foreground font-semibold">Attachment</TableHead>
                 <TableHead className="text-foreground font-semibold">Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {progress.length === 0 ? (<TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No progress entries added yet.
                   </TableCell>
                 </TableRow>) : (progress.map((entry) => (<TableRow key={entry.id} className="border-border hover:bg-secondary/30 transition-colors">
                     <TableCell>
-                      <Badge className={getTypeColor(entry.entryType)}>
+                      <Badge className={getTypeColor(entry.certificationType)}>
                         <span className="flex items-center gap-1">
-                          {getTypeIcon(entry.entryType)}
-                          {entry.entryType === 'marks' ? 'Marks' : entry.entryType === 'skill' ? 'Skill' : 'Report'}
+                          {getTypeIcon(entry.certificationType)}
+                          {entry.certificationType}
                         </span>
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium text-foreground">
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         <p>{entry.title}</p>
-                        {entry.valueText && (<Badge className="bg-primary/20 text-primary">{entry.valueText}</Badge>)}
-                        {entry.entryType === 'report' && entry.numericValue != null && (<Badge className="bg-accent/20 text-accent">Score: {entry.numericValue}</Badge>)}
+                        <p className="text-sm text-muted-foreground max-w-md truncate">{entry.description}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-md text-muted-foreground">{entry.description}</TableCell>
+                    <TableCell>
+                      <Badge className={
+                        entry.verificationStatus === 'verified' ? 'bg-green-500/20 text-green-600' :
+                        entry.verificationStatus === 'rejected' ? 'bg-red-500/20 text-red-600' :
+                        'bg-yellow-500/20 text-yellow-600'
+                      }>
+                        {entry.verificationStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {entry.mentorScore ? (
+                        <Badge className="bg-blue-500/20 text-blue-600">
+                          {entry.mentorScore}/10
+                        </Badge>
+                      ) : entry.certificationType === 'cgpa' ? (
+                        <Badge className="bg-primary/20 text-primary">
+                          {entry.valueText}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {entry.attachmentUrls.length > 0 ? (<a href={entry.attachmentUrls[0]} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
                           <Paperclip className="h-4 w-4"/>

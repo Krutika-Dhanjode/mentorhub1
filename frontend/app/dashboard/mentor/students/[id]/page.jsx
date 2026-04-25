@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { sendNotificationEmail } from "@/lib/send-notification-email";
 import { toast } from "sonner";
+import { useMemo } from "react";
+import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 const escapePdfText = (value) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 const buildPdfBlob = (lines) => {
     const linesPerPage = 32;
@@ -61,6 +64,42 @@ export default function StudentReportPage({ params }) {
     const [mentorStatusDraft, setMentorStatusDraft] = useState("Good Standing");
     const [lastSentTime, setLastSentTime] = useState("");
     const [pageLoading, setPageLoading] = useState(true);
+
+    const chartData = useMemo(() => {
+        const categoryMap = {
+            cgpa: { total: 0, count: 0 },
+            sports: { total: 0, count: 0 },
+            hackathon: { total: 0, count: 0 },
+            certification: { total: 0, count: 0 },
+            competition: { total: 0, count: 0 },
+            achievement: { total: 0, count: 0 },
+        };
+
+        progress.forEach((entry) => {
+            const type = (entry.entry_type || entry.certification_type || "achievement").toLowerCase();
+            const cat = type === "marks" ? "cgpa" 
+                : type === "skill" ? "certification" 
+                : Object.keys(categoryMap).includes(type) ? type : "achievement";
+
+            const isVerified = cat === "cgpa" || entry.verification_status === "verified";
+            const rawVal = entry.score != null ? entry.score : entry.value_text;
+            const parsedVal = parseFloat(rawVal);
+
+            if (isVerified && !isNaN(parsedVal)) {
+                categoryMap[cat].total += parsedVal;
+                categoryMap[cat].count++;
+            }
+        });
+
+        return Object.entries(categoryMap)
+            .filter(([_, stats]) => stats.count > 0)
+            .map(([cat, stats]) => ({
+                label: cat.charAt(0).toUpperCase() + cat.slice(1),
+                score: Number((stats.total / stats.count).toFixed(1)),
+                count: stats.count
+            }));
+    }, [progress]);
+
     // ✅ FETCH STUDENT
     useEffect(() => {
         const fetchStudent = async () => {
@@ -177,42 +216,60 @@ export default function StudentReportPage({ params }) {
         };
         fetchProgress();
     }, [id]);
-    const handleReportScoreSave = async (entryId) => {
+    const handleVerifyEntry = async (entryId, action) => {
         const rawValue = scoreDraftByEntryId[entryId];
-        const parsed = rawValue === "" ? null : Number(rawValue);
-        if (rawValue !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
-            toast.error("Please enter a valid score between 0 and 10.");
-            return;
+        let parsed = undefined;
+
+        if (action === "verified") {
+            parsed = rawValue === "" ? null : Number(rawValue);
+            if (rawValue !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
+                toast.error("Please enter a valid score between 0 and 10.");
+                return;
+            }
+            if (parsed == null) {
+                toast.error("Please provide a score before approving.");
+                return;
+            }
         }
-        const { data: studentByEmail, error: studentLookupError } = await supabase
-            .from("users")
-            .select("id, email, name")
-            .eq("email", student?.email || "")
-            .maybeSingle();
-        if (studentLookupError || !studentByEmail?.id) {
-            toast.error("Unable to find student by email for score update.");
-            return;
-        }
+
         setSavingScoreEntryId(entryId);
-        const { error } = await supabase
-            .from("progress")
-            .update({ score: parsed })
-            .eq("id", entryId)
-            .eq("student_id", studentByEmail.id);
-        setSavingScoreEntryId(null);
-        if (error) {
-            toast.error("Unable to save report score: " + error.message);
-            return;
-        }
-        setProgress((current) => current.map((entry) => entry.id === entryId ? { ...entry, score: parsed } : entry));
+        
         try {
+            const apiAction = action === "verified" ? "verify" : "reject";
+            const response = await fetch('/api/mentor/verify-certification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    certificationId: entryId,
+                    score: parsed,
+                    feedback: `Status changed to ${action} from student profile view.`,
+                    action: apiAction,
+                }),
+            });
+
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || "Unknown error occurred");
+            }
+
+            setProgress((current) =>
+                current.map((entry) =>
+                    entry.id === entryId
+                        ? { ...entry, verification_status: action, score: action === "verified" ? parsed : entry.score }
+                        : entry
+                )
+            );
+
+            toast.success(`Entry ${action === "verified" ? "approved" : "rejected"} successfully.`);
+            
             const progressEntry = progress.find((entry) => entry.id === entryId);
-            const emailResponse = await sendNotificationEmail(student?.email || "", student?.name || "Student", "score", `Your report score has been updated for "${progressEntry?.title || "Report"}" to ${parsed == null ? "Not given" : `${parsed}/10`}.`);
+            const emailResponse = await sendNotificationEmail(student?.email || "", student?.name || "Student", "score", `Your progress entry "${progressEntry?.title || "Activity"}" has been ${action === "verified" ? `approved with a score of ${parsed}/10` : "rejected"}.`);
             setLastSentTime(emailResponse?.lastSentAt || new Date().toISOString());
-            toast.success("Report score saved and email sent.");
-        }
-        catch (emailError) {
-            toast.error(`Report score saved, but email failed: ${emailError.message}`);
+        } catch (error) {
+            toast.error(`Unable to save: ${error.message}`);
+        } finally {
+            setSavingScoreEntryId(null);
         }
     };
     const handleExport = () => {
@@ -347,34 +404,72 @@ export default function StudentReportPage({ params }) {
       {/* MEETINGS */}
 
 
+      {/* PROGRESS GRAPH */}
+      {chartData.length > 0 && (
+        <Card className="border-border bg-card p-6 mb-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Category Performance</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Average verified scores grouped by activity type out of 10.
+              </p>
+            </div>
+            <Badge className="bg-primary/10 text-primary">
+              {chartData.reduce((acc, curr) => acc + curr.count, 0)} active entries
+            </Badge>
+          </div>
+          <ChartContainer className="h-64 w-full" config={{
+              score: {
+                  label: 'Average',
+                  color: 'hsl(var(--primary))',
+              },
+          }}>
+            <BarChart data={chartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="5%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8}/>
+              <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
+              <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(label) => `Category: ${label}`} formatter={(value) => [`${value}/10`, 'Average Score']} />}/>
+              <Bar dataKey="score" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} animationDuration={700} barSize={30}/>
+            </BarChart>
+          </ChartContainer>
+        </Card>
+      )}
+
       {/* PROGRESS */}
       <Card className="p-4">
-        <h3>Progress</h3>
+        <h3 className="text-lg font-semibold mb-4">Progress Entries</h3>
 
         {progress.length === 0 ? (<p className="text-sm text-muted-foreground">No progress entries saved by this student yet.</p>) : (progress.map((p) => (<div key={p.id} className="mb-3 rounded border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-semibold">{p.title || "Untitled Progress"}</p>
                 {p.entry_type && <Badge variant="outline">{p.entry_type}</Badge>}
-                {(p.value_text || p.score) && (<Badge className="bg-primary/20 text-primary">
-                    {p.value_text || p.score}
+                {(p.value_text || p.score != null) && (<Badge className="bg-primary/20 text-primary">
+                    {(p.entry_type === "report" || p.entry_type !== "cgpa" && p.score != null) ? `Score: ${p.score}` : (p.value_text || p.score)}
                   </Badge>)}
-                {p.entry_type === "report" && p.score !== null && p.score !== undefined && (<Badge className="bg-accent/20 text-accent">Score: {p.score}</Badge>)}
+                {p.verification_status && (
+                    <Badge className={p.verification_status === 'verified' ? "bg-green-500/20 text-green-700 hover:bg-green-500/30" : p.verification_status === 'rejected' ? "bg-red-500/20 text-red-700 hover:bg-red-500/30" : "bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30"}>
+                        {p.verification_status.charAt(0).toUpperCase() + p.verification_status.slice(1)}
+                    </Badge>
+                )}
               </div>
 
               <p className="mt-2 text-sm text-muted-foreground">
                 {p.description || "No description provided."}
               </p>
 
-              {p.entry_type === "report" && (<div className="mt-3 flex flex-wrap items-center gap-2">
-                  <label htmlFor={`report-score-${p.id}`} className="text-xs font-medium text-muted-foreground">
-                    Report Score (0-10)
+              {p.entry_type !== "cgpa" && (!p.verification_status || p.verification_status === "pending") && (<div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 border-border/50">
+                  <label htmlFor={`verify-score-${p.id}`} className="text-xs font-medium text-muted-foreground">
+                    Assign Score (0-10)
                   </label>
-                  <input id={`report-score-${p.id}`} type="number" min="0" max="10" step="0.1" value={scoreDraftByEntryId[p.id] ?? ""} onChange={(event) => setScoreDraftByEntryId((current) => ({
+                  <input id={`verify-score-${p.id}`} type="number" min="0" max="10" step="0.1" value={scoreDraftByEntryId[p.id] ?? ""} onChange={(event) => setScoreDraftByEntryId((current) => ({
                 ...current,
                 [p.id]: event.target.value,
-            }))} className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
-                  <Button size="sm" variant="outline" onClick={() => handleReportScoreSave(p.id)} disabled={savingScoreEntryId === p.id}>
-                    {savingScoreEntryId === p.id ? "Saving..." : "Save Score"}
+            }))} className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground" placeholder="Score"/>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleVerifyEntry(p.id, "verified")} disabled={savingScoreEntryId === p.id}>
+                    {savingScoreEntryId === p.id ? "Saving..." : "Approve & Score"}
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleVerifyEntry(p.id, "rejected")} disabled={savingScoreEntryId === p.id}>
+                    Reject
                   </Button>
                 </div>)}
 
