@@ -57,6 +57,17 @@ export const chatService = {
 
     if (error) throw error;
 
+    fetch('/api/batch-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        batchId,
+        senderId: userId,
+        senderName: data.users?.name || data.users?.full_name || 'User',
+        message: data.message
+      })
+    }).catch(err => console.error("Notification trigger error:", err));
+
     return {
       id: data.id,
       message: data.message,
@@ -110,6 +121,17 @@ export const chatService = {
       .single();
 
     if (error) throw error;
+
+    fetch('/api/batch-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        batchId,
+        senderId: userId,
+        senderName: data.users?.name || data.users?.full_name || 'User',
+        message: data.message || 'Attached a file'
+      })
+    }).catch(err => console.error("Notification trigger error:", err));
 
     return {
       id: data.id,

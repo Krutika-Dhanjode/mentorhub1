@@ -130,6 +130,16 @@ export function AppNavbar({ title = 'Dashboard' }) {
 
       {/* Center - Search (hidden on mobile) */}
       <div className="hidden md:flex flex-1 max-w-md mx-4 items-center gap-3">
+        {user?.role !== 'student' && (
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4"/>
+            <Input type="text" placeholder="Search by name, PRN, or email..." value={globalSearch} onChange={(event) => handleGlobalSearchChange(event.target.value)} className="pl-10 bg-input border-border focus-visible:ring-primary"/>
+          </div>
+        )}
+      </div>
+
+      {/* Right Section */}
+      <div className="flex items-center gap-4">
         <DropdownMenu open={notificationOpen} onOpenChange={handleNotificationOpenChange}>
           <DropdownMenuTrigger asChild>
             <button type="button" className="relative inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background hover:bg-secondary transition-colors" aria-label="Notifications">
@@ -139,7 +149,7 @@ export function AppNavbar({ title = 'Dashboard' }) {
                 </span>)}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-96">
+          <DropdownMenuContent align="end" className="w-96">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {notificationsLoading ? (<DropdownMenuItem disabled>Loading...</DropdownMenuItem>) : notifications.length === 0 ? (<DropdownMenuItem disabled>No new notifications</DropdownMenuItem>) : (notifications.map((item) => (<DropdownMenuItem key={item.id} className="block cursor-default focus:bg-transparent">
@@ -151,14 +161,7 @@ export function AppNavbar({ title = 'Dashboard' }) {
                 </DropdownMenuItem>)))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4"/>
-          <Input type="text" placeholder="Search by name, PRN, or email..." value={globalSearch} onChange={(event) => handleGlobalSearchChange(event.target.value)} className="pl-10 bg-input border-border focus-visible:ring-primary"/>
-        </div>
-      </div>
 
-      {/* Right Section */}
-      <div className="flex items-center gap-4">
         {/* User Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

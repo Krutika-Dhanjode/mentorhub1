@@ -68,107 +68,108 @@ export default function PrintMentorshipFormPage({ params }) {
             <div className="space-y-[10px] w-full max-w-[550px] sm:max-w-full">
                 
                 <div className="flex gap-2">
-                    <span className="whitespace-nowrap">Name in full</span>
+                    <span className="whitespace-nowrap font-semibold">Name in full</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.name)}</span>
                 </div>
 
                 <div className="flex items-center gap-1 flex-wrap">
-                    <span>Admission date</span>
+                    <span className="font-semibold">Admission date</span>
                     <span className="border-b-[1px] border-black/50 border-dotted px-4">{vSmall(studentProfile.admission_date)}</span>
-                    <span className="ml-2">Year</span>
+                    <span className="ml-2 font-semibold">Year</span>
                     <span className="border-b-[1px] border-black/50 border-dotted px-4 w-20">{vSmall(studentProfile.academic_year)}</span>
-                    <span className="ml-4">PRN No.</span>
+                    <span className="ml-4 font-semibold">PRN No.</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 min-w-[120px] px-2">{v(studentProfile.prn)}</span>
                 </div>
 
                 <div className="flex items-center gap-1 flex-wrap">
-                    <span>Gender: {studentProfile.gender === 'Male' ? 'M' : studentProfile.gender === 'Female' ? 'F' : 'M/F'}</span>
-                    <span className="ml-4">Birth date</span>
+                    <span className="font-semibold">Gender:</span> 
+                    <span>{studentProfile.gender === 'Male' ? 'M' : studentProfile.gender === 'Female' ? 'F' : 'M/F'}</span>
+                    <span className="ml-4 font-semibold">Birth date</span>
                     <span className="border-b-[1px] border-black/50 border-dotted px-4 w-28">{vSmall(studentProfile.date_of_birth)}</span>
-                    <span className="ml-2">Birth place</span>
+                    <span className="ml-2 font-semibold">Birth place</span>
                     <span className="border-b-[1px] border-black/50 border-dotted px-4 w-32">{vSmall(studentProfile.birth_place)}</span>
-                    <span className="ml-2">Birth Dist.</span>
+                    <span className="ml-2 font-semibold">Birth Dist.</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 min-w-[100px] px-2">{vSmall(studentProfile.birth_district)}</span>
                 </div>
 
                 <div className="flex items-center gap-1">
-                    <span>Religion</span>
+                    <span className="font-semibold">Religion</span>
                     <span className="border-b-[1px] border-black/50 border-dotted px-4 w-32">{vSmall(studentProfile.religion)}</span>
-                    <span className="ml-2">Category</span>
+                    <span className="ml-2 font-semibold">Category</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-4">{vSmall(studentProfile.category)}</span>
                 </div>
 
                 <div className="flex items-center gap-1 flex-wrap mt-6">
-                    <span>Caste/Sub Caste</span>
+                    <span className="font-semibold">Caste/Sub Caste</span>
                     <span className="border-b-[1px] border-black/50 border-dotted px-4 w-40">{vSmall(studentProfile.caste_sub_caste)}</span>
-                    <span className="ml-2">Domicile</span>
+                    <span className="ml-2 font-semibold">Domicile</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-4">{vSmall(studentProfile.domicile)}</span>
-                    <span className="ml-2">Blood Group</span>
+                    <span className="ml-2 font-semibold">Blood Group</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{vSmall(studentProfile.blood_group)}</span>
                 </div>
 
                 <div className="flex items-center gap-1">
-                    <span>Seat type: CET Merit/Management/Trust quota</span>
+                    <span className="font-semibold">Seat type: CET Merit/Management/Trust quota</span>
                     <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-4">{v(studentProfile.seat_type)}</span>
                 </div>
 
                 {/* Academic Breakdown */}
                 <div className="pt-4 space-y-3">
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>SSC Marks:</span>
+                        <span className="font-semibold">SSC Marks:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-20">{vSmall(studentProfile.ssc_marks)}</span>
-                        <span>out of</span>
+                        <span className="font-semibold">out of</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-16">{vSmall(studentProfile.ssc_out_of)}</span>
-                        <span className="ml-2">Passing Year</span>
+                        <span className="ml-2 font-semibold">Passing Year</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-24">{vSmall(studentProfile.ssc_passing_year)}</span>
-                        <span className="ml-2">SSC Board</span>
+                        <span className="ml-2 font-semibold">SSC Board</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.ssc_board)}</span>
                     </div>
 
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>HSC Marks:</span>
+                        <span className="font-semibold">HSC Marks:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-20">{vSmall(studentProfile.hsc_marks)}</span>
-                        <span>out of</span>
+                        <span className="font-semibold">out of</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-16">{vSmall(studentProfile.hsc_out_of)}</span>
-                        <span className="ml-2">Passing Year</span>
+                        <span className="ml-2 font-semibold">Passing Year</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-24">{vSmall(studentProfile.hsc_passing_year)}</span>
-                        <span className="ml-2">HSC Board</span>
+                        <span className="ml-2 font-semibold">HSC Board</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.hsc_board)}</span>
                     </div>
 
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Diploma Marks:</span>
+                        <span className="font-semibold">Diploma Marks:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-20">{vSmall(studentProfile.diploma_marks)}</span>
-                        <span>out of</span>
+                        <span className="font-semibold">out of</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-16">{vSmall(studentProfile.diploma_out_of)}</span>
-                        <span className="ml-2">Passing Year</span>
+                        <span className="ml-2 font-semibold">Passing Year</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-4 min-w-[200px]">{vSmall(studentProfile.diploma_passing_year)}</span>
                     </div>
 
                     <div className="flex items-center gap-1 flex-wrap pt-1">
-                        <span>Marks obtained in HSC- physics</span>
+                        <span className="font-semibold">Marks obtained in HSC- physics</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-3 w-16">{vSmall(studentProfile.hsc_physics_marks)}</span>
-                        <span>Chemistry</span>
+                        <span className="font-semibold">Chemistry</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-3 w-16">{vSmall(studentProfile.hsc_chemistry_marks)}</span>
-                        <span>Mathematics</span>
+                        <span className="font-semibold">Mathematics</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-3 w-16">{vSmall(studentProfile.hsc_mathematics_marks)}</span>
-                        <span>Total</span>
+                        <span className="font-semibold">Total</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-3 w-16">{vSmall(studentProfile.hsc_total_marks)}</span>
-                        <span>Out of</span>
+                        <span className="font-semibold">Out of</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{vSmall(studentProfile.hsc_out_of)}</span>
                     </div>
 
                     <div className="flex gap-2">
-                        <span className="whitespace-nowrap">Name of Institution last attended (HSC/Diploma)</span>
+                        <span className="whitespace-nowrap font-semibold">Name of Institution last attended (HSC/Diploma)</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.last_institution_name)}</span>
                     </div>
 
                     <div className="flex gap-1 flex-wrap items-center">
-                        <span>City:</span>
+                        <span className="font-semibold">City:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-32">{vSmall(studentProfile.city)}</span>
-                        <span className="ml-2">District:</span>
+                        <span className="ml-2 font-semibold">District:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-4 w-32">{vSmall(studentProfile.district)}</span>
-                        <span className="ml-2">State:</span>
+                        <span className="ml-2 font-semibold">State:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.state)}</span>
                     </div>
                 </div>
@@ -176,96 +177,98 @@ export default function PrintMentorshipFormPage({ params }) {
                 {/* Family Details */}
                 <div className="pt-2 space-y-3">
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Parents Income</span>
+                        <span className="font-semibold">Parents Income</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.parents_income)}</span>
-                        <span className="ml-2">Free concession {studentProfile.free_concession ? 'Yes' : 'Yes/No'}</span>
-                        <span className="ml-4">Type:</span>
+                        <span className="ml-2 font-semibold">Free concession</span>
+                        <span>{studentProfile.free_concession ? 'Yes' : 'Yes/No'}</span>
+                        <span className="ml-4 font-semibold">Type:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 flex-1">{vSmall(studentProfile.concession_type)}</span>
-                        <span className="ml-2">No of Childs</span>
+                        <span className="ml-2 font-semibold">No of Childs</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-16">{vSmall(studentProfile.number_of_children)}</span>
                     </div>
 
                     <div className="flex gap-2">
-                        <span className="whitespace-nowrap">Father Name (in full)</span>
+                        <span className="whitespace-nowrap font-semibold">Father Name (in full)</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.father_name)}</span>
                     </div>
 
                     <div className="flex gap-2">
-                        <span className="whitespace-nowrap">Father’s permanent Residence address</span>
+                        <span className="whitespace-nowrap font-semibold">Father’s permanent Residence address</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.father_address)}</span>
                     </div>
 
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Office address</span>
+                        <span className="font-semibold">Office address</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 min-w-[200px] px-2">{v(studentProfile.father_office_address)}</span>
-                        <span className="ml-2">Designation</span>
+                        <span className="ml-2 font-semibold">Designation</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.father_designation)}</span>
                     </div>
 
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Occupation</span>
+                        <span className="font-semibold">Occupation</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.father_occupation)}</span>
-                        <span className="ml-2">E Mail</span>
+                        <span className="ml-2 font-semibold">E Mail</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 flex-1">{vSmall(studentProfile.father_email)}</span>
-                        <span className="ml-2">Mobile No.</span>
+                        <span className="ml-2 font-semibold">Mobile No.</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.father_mobile)}</span>
                     </div>
 
                     {/* Mother */}
                     <div className="flex gap-2 pt-1">
-                        <span className="whitespace-nowrap">Mother Name (in full)</span>
+                        <span className="whitespace-nowrap font-semibold">Mother Name (in full)</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.mother_name)}</span>
                     </div>
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Office address</span>
+                        <span className="font-semibold">Office address</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 min-w-[200px] px-2">{v(studentProfile.mother_office_address)}</span>
-                        <span className="ml-2">Designation</span>
+                        <span className="ml-2 font-semibold">Designation</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.mother_designation)}</span>
                     </div>
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Occupation</span>
+                        <span className="font-semibold">Occupation</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.mother_occupation)}</span>
-                        <span className="ml-2">E Mail</span>
+                        <span className="ml-2 font-semibold">E Mail</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 flex-1">{vSmall(studentProfile.mother_email)}</span>
-                        <span className="ml-2">Mobile No.</span>
+                        <span className="ml-2 font-semibold">Mobile No.</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.mother_mobile)}</span>
                     </div>
 
                     {/* Local Guardian */}
                     <div className="flex gap-2 pt-1">
-                        <span className="whitespace-nowrap">Local Guardian name (in full)</span>
+                        <span className="whitespace-nowrap font-semibold">Local Guardian name (in full)</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.local_guardian_name)}</span>
                     </div>
                     <div className="flex gap-2">
-                        <span className="whitespace-nowrap">and his permanent address</span>
+                        <span className="whitespace-nowrap font-semibold">and his permanent address</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.local_guardian_address)}</span>
                     </div>
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Office address</span>
+                        <span className="font-semibold">Office address</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 min-w-[200px] px-2">{v(studentProfile.local_guardian_office_address)}</span>
-                        <span className="ml-2">Designation</span>
+                        <span className="ml-2 font-semibold">Designation</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{v(studentProfile.local_guardian_designation)}</span>
                     </div>
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Occupation</span>
+                        <span className="font-semibold">Occupation</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.local_guardian_occupation)}</span>
-                        <span className="ml-2">E Mail</span>
+                        <span className="ml-2 font-semibold">E Mail</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 flex-1">{vSmall(studentProfile.local_guardian_email)}</span>
-                        <span className="ml-2">Mobile No.</span>
+                        <span className="ml-2 font-semibold">Mobile No.</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-32">{vSmall(studentProfile.local_guardian_mobile)}</span>
                     </div>
 
                     <div className="flex items-center gap-1 pt-2">
-                        <span>Student’s local residence: {["College Hostel", "Private Room", "Private Hostel"].includes(studentProfile.local_residence) ? studentProfile.local_residence : 'College Hostel/Private Room/Private Hostel/ Other'}</span>
+                        <span className="font-semibold">Student’s local residence:</span>
+                        <span>{["College Hostel", "Private Room", "Private Hostel"].includes(studentProfile.local_residence) ? studentProfile.local_residence : 'College Hostel/Private Room/Private Hostel/ Other'}</span>
                         <span className="border-b-[1px] border-black/50 border-dotted flex-1 px-2">{!["College Hostel", "Private Room", "Private Hostel"].includes(studentProfile.local_residence) ? v(studentProfile.local_residence) : '_________________'}</span>
                     </div>
 
                     <div className="flex items-center gap-1 flex-wrap">
-                        <span>Height:</span>
+                        <span className="font-semibold">Height:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-28">{vSmall(studentProfile.height)}</span>
-                        <span className="ml-2">Weight:</span>
+                        <span className="ml-2 font-semibold">Weight:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 w-28">{vSmall(studentProfile.weight)},</span>
-                        <span className="ml-4">Married:</span>
+                        <span className="ml-4 font-semibold">Married:</span>
                         <span className="border-b-[1px] border-black/50 border-dotted px-2 flex-1">{vSmall(studentProfile.marital_status)}</span>
                     </div>
                 </div>

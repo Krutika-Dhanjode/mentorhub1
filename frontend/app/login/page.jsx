@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,6 +19,21 @@ export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  useEffect(() => {
+    // This allows us to intercept the back button
+    window.history.pushState(null, null, window.location.pathname);
+    
+    const handlePopState = () => {
+      router.push("/");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [router]);
 
   const roles = [
     { id: "hod", label: "Admin", icon: UserCog },
@@ -99,14 +114,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-accent/10 p-4 flex flex-col">
-      <div className="w-full max-w-5xl mx-auto flex justify-start mb-4">
-        <Link href="/">
-          <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </Button>
-        </Link>
-      </div>
+
 
       <div className="flex-1 flex items-center justify-center -mt-16">
         <Card className="w-full max-w-md shadow-lg border-0">
@@ -172,6 +180,11 @@ export default function LoginPage() {
                   >
                     {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+                    Forgot password?
+                  </Link>
                 </div>
               </div>
 
