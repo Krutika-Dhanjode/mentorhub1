@@ -130,9 +130,7 @@ export default function StudentMeetingsPage() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-xl font-semibold text-foreground">{meeting.title}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Meeting ID: {meeting.id}
-                      </p>
+
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
