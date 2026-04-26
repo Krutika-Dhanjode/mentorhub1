@@ -16,6 +16,8 @@ export function AppNavbar({ title = 'Dashboard' }) {
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [notificationsLoading, setNotificationsLoading] = useState(false);
+    const [notificationsError, setNotificationsError] = useState('');
+    const [isReconnectingNotifications, setIsReconnectingNotifications] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
     const supabase = createClient();
     useEffect(() => {
@@ -71,27 +73,44 @@ export function AppNavbar({ title = 'Dashboard' }) {
     const fetchNotificationsByEmail = async () => {
         if (!user?.email)
             return [];
-        const { data, error } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('email', user.email)
-            .order('created_at', { ascending: false })
-            .limit(20);
-        if (error) {
-            console.error('Error fetching notifications:', error.message);
-            return [];
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('email', user.email)
+                .order('created_at', { ascending: false })
+                .limit(20);
+            if (error) {
+                throw new Error(error.message || 'Unable to load notifications');
+            }
+            return data || [];
         }
-        return data || [];
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to load notifications';
+            throw new Error(message);
+        }
     };
     const fetchNotifications = async () => {
         if (!user?.email) {
             setNotifications([]);
+            setNotificationsError('');
             return;
         }
         setNotificationsLoading(true);
-        const rows = await fetchNotificationsByEmail();
-        setNotifications(rows);
-        setNotificationsLoading(false);
+        try {
+            const rows = await fetchNotificationsByEmail();
+            setNotifications(rows);
+            setNotificationsError('');
+            return true;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to load notifications right now.';
+            setNotificationsError(message);
+            return false;
+        }
+        finally {
+            setNotificationsLoading(false);
+        }
     };
     const deleteSeenNotifications = async () => {
         if (!user?.email)
@@ -109,8 +128,15 @@ export function AppNavbar({ title = 'Dashboard' }) {
         setNotificationOpen(open);
         if (!open)
             return;
+        const loaded = await fetchNotifications();
+        if (loaded) {
+            await deleteSeenNotifications();
+        }
+    };
+    const reconnectNotifications = async () => {
+        setIsReconnectingNotifications(true);
         await fetchNotifications();
-        await deleteSeenNotifications();
+        setIsReconnectingNotifications(false);
     };
     useEffect(() => {
         if (!user?.email)
@@ -120,6 +146,15 @@ export function AppNavbar({ title = 'Dashboard' }) {
             fetchNotifications();
         }, 30000);
         return () => clearInterval(intervalId);
+    }, [user?.email]);
+    useEffect(() => {
+        if (!user?.email)
+            return;
+        const handleOnline = () => {
+            reconnectNotifications();
+        };
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
     }, [user?.email]);
     return (<header className="sticky top-0 z-30 bg-card border-b border-border h-16 flex items-center justify-between px-4 lg:px-6 pl-20 lg:pl-6 shadow-sm">
       {/* Title */}
@@ -149,10 +184,20 @@ export function AppNavbar({ title = 'Dashboard' }) {
                 </span>)}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-96">
+            <DropdownMenuContent align="end" className="w-96">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notificationsLoading ? (<DropdownMenuItem disabled>Loading...</DropdownMenuItem>) : notifications.length === 0 ? (<DropdownMenuItem disabled>No new notifications</DropdownMenuItem>) : (notifications.map((item) => (<DropdownMenuItem key={item.id} className="block cursor-default focus:bg-transparent">
+            {notificationsError ? (<>
+                <DropdownMenuItem disabled className="block cursor-default focus:bg-transparent">
+                  <p className="text-sm text-destructive">{notificationsError}</p>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={(event) => {
+                    event.preventDefault();
+                    reconnectNotifications();
+                }}>
+                  {isReconnectingNotifications ? 'Reconnecting...' : 'Reconnect'}
+                </DropdownMenuItem>
+              </>) : notificationsLoading ? (<DropdownMenuItem disabled>Loading...</DropdownMenuItem>) : notifications.length === 0 ? (<DropdownMenuItem disabled>No new notifications</DropdownMenuItem>) : (notifications.map((item) => (<DropdownMenuItem key={item.id} className="block cursor-default focus:bg-transparent">
                   <p className="text-sm font-medium capitalize">{item.type || 'update'}</p>
                   <p className="mt-1 whitespace-normal text-xs text-muted-foreground">{item.message}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">

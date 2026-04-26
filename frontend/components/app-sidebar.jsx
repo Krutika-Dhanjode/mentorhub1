@@ -24,7 +24,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
         else if (normalizedRole === 'mentor') {
             return [
                 { label: 'Students', href: '/dashboard/mentor/students', icon: <Users className="w-5 h-5"/> },
-                { label: 'Certifications', href: '/dashboard/mentor/certifications', icon: <Award className="w-5 h-5"/> },
+                { label: 'Approval', href: '/dashboard/mentor/certifications', icon: <Award className="w-5 h-5"/> },
                 { label: 'Analytics', href: '/dashboard/mentor/analytics', icon: <TrendingUp className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/mentor/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Guidance', href: '/dashboard/mentor/guidance', icon: <MessageSquare className="w-5 h-5"/> },

@@ -4,7 +4,7 @@ import { Award, TrendingUp, Users, Target, Star, Trophy, AlertTriangle } from 'l
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer, LabelList } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
@@ -14,6 +14,7 @@ export default function MentorAnalyticsPage() {
     const supabase = createClient();
     const [batches, setBatches] = useState([]);
     const [selectedBatchId, setSelectedBatchId] = useState('all');
+    const [selectedComparisonCategory, setSelectedComparisonCategory] = useState('overall');
     const [analyticsData, setAnalyticsData] = useState({
         certifications: [],
         students: [],
@@ -229,16 +230,56 @@ export default function MentorAnalyticsPage() {
         }));
     }, [analyticsData.categoryStats]);
 
+    const comparisonCategoryOptions = useMemo(() => ([
+        { value: 'overall', label: 'Overall' },
+        { value: 'certification', label: 'Certification' },
+        { value: 'hackathon', label: 'Hackathon' },
+        { value: 'sports', label: 'Sports' },
+        { value: 'competition', label: 'Competition' },
+        { value: 'cgpa', label: 'CGPA' },
+        { value: 'achievement', label: 'Achievement' },
+    ]), []);
+    const comparisonBarColors = useMemo(() => ([
+        '#2563eb',
+        '#16a34a',
+        '#d97706',
+        '#dc2626',
+        '#7c3aed',
+        '#0891b2',
+        '#db2777',
+        '#4f46e5',
+    ]), []);
+
+    const selectedComparisonCategoryLabel = useMemo(() => {
+        return comparisonCategoryOptions.find((option) => option.value === selectedComparisonCategory)?.label || 'Overall';
+    }, [comparisonCategoryOptions, selectedComparisonCategory]);
+
     const studentComparisonData = useMemo(() => {
-        return analyticsData.students
-            .sort((a, b) => b.overallAvg - a.overallAvg)
-            .map(s => ({
-                name: s.name.split(' ').slice(0, 2).join(' '),
-                avgScore: s.overallAvg || 0,
-                fullName: s.name,
-                entries: s.totalEntries || 0
-            }));
-    }, [analyticsData.students]);
+        const mapped = analyticsData.students.map((student) => {
+            if (selectedComparisonCategory === 'overall') {
+                return {
+                    name: student.name.split(' ').slice(0, 2).join(' '),
+                    avgScore: student.overallAvg || 0,
+                    fullName: student.name,
+                    entries: student.totalEntries || 0,
+                };
+            }
+
+            const categoryScores = analyticsData.performance?.[student.studentId]?.categories?.[selectedComparisonCategory] || [];
+            const avgCategoryScore = categoryScores.length > 0
+                ? Number((categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length).toFixed(1))
+                : 0;
+
+            return {
+                name: student.name.split(' ').slice(0, 2).join(' '),
+                avgScore: avgCategoryScore,
+                fullName: student.name,
+                entries: categoryScores.length,
+            };
+        });
+
+        return mapped.sort((a, b) => b.avgScore - a.avgScore || a.fullName.localeCompare(b.fullName));
+    }, [analyticsData.performance, analyticsData.students, selectedComparisonCategory]);
 
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground p-6">Loading analytics...</p>;
@@ -343,16 +384,36 @@ export default function MentorAnalyticsPage() {
             </div>
 
             <Card className="border-border bg-card p-6 mb-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">Student Comparison</h2>
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <h2 className="text-xl font-semibold text-foreground">{selectedComparisonCategoryLabel} Student Comparison</h2>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Filter</span>
+                        <Select value={selectedComparisonCategory} onValueChange={setSelectedComparisonCategory}>
+                            <SelectTrigger className="w-44 bg-card border-border">
+                                <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {comparisonCategoryOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
                 <ChartContainer className="h-96 w-full" config={{
-                    avgScore: { label: 'Overall Score', color: 'hsl(var(--primary))' },
+                    avgScore: { label: `${selectedComparisonCategoryLabel} Score`, color: 'hsl(var(--primary))' },
                 }}>
                     <BarChart data={studentComparisonData} margin={{ left: 12, right: 12, top: 8, bottom: 40 }} barCategoryGap="2%">
                         <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                         <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-35} textAnchor="end" height={60} style={{ fontSize: '11px' }}/>
                         <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-                        <ChartTooltip cursor={{ fill: 'var(--accent)' }} content={<ChartTooltipContent labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label} formatter={(value) => [`${value}/10`, 'Average Score']} />}/>
-                        <Bar dataKey="avgScore" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} animationDuration={700} barSize={25} />
+                        <ChartTooltip cursor={{ fill: 'var(--accent)' }} content={<ChartTooltipContent labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label} formatter={(value) => [`${value}/10`, `${selectedComparisonCategoryLabel} Avg Score`]} />}/>
+                        <Bar dataKey="avgScore" radius={[4, 4, 0, 0]} animationDuration={700} barSize={25}>
+                            {studentComparisonData.map((entry, index) => (
+                                <Cell key={`comparison-bar-${entry.fullName}-${index}`} fill={comparisonBarColors[index % comparisonBarColors.length]} />
+                            ))}
+                            <LabelList dataKey="entries" position="top" offset={8} formatter={(value) => `Count: ${value}`} style={{ fontSize: '11px', fill: 'hsl(var(--muted-foreground))' }} />
+                        </Bar>
                     </BarChart>
                 </ChartContainer>
             </Card>
@@ -444,4 +505,4 @@ export default function MentorAnalyticsPage() {
             </Card>
         </div>
     );
-}
+}

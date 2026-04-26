@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, Upload, BarChart3, Edit, Calendar, MessageSquare } from 'lucide-react';
+import { Users, UserPlus, FolderPlus, ChevronRight, Trash2, Download, Upload, Edit, Calendar, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -1025,10 +1025,6 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
           <Button variant="outline" className="gap-2" onClick={() => reportFileInputRef.current?.click()} disabled={importingReport}>
             <Upload className="w-4 h-4"/>
             {importingReport ? 'Importing Report...' : 'Upload Updated Report'}
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={() => setIsComparisonOpen(true)}>
-            <BarChart3 className="w-4 h-4"/>
-            Show Comparison
           </Button>
           <Dialog open={isCreateBatchOpen} onOpenChange={setIsCreateBatchOpen}>
             <DialogTrigger asChild>
