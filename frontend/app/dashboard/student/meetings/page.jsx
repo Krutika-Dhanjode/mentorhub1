@@ -46,6 +46,15 @@ export default function StudentMeetingsPage() {
                 setDataLoading(false);
                 return;
             }
+            const meetingIds = Array.from(new Set((meetingData || []).map((meeting) => meeting.id).filter(Boolean)));
+            const { data: attendanceData } = meetingIds.length > 0
+                ? await supabase
+                    .from('meeting_attendance')
+                    .select('meeting_id, present')
+                    .eq('student_id', user.id)
+                    .in('meeting_id', meetingIds)
+                : { data: [] };
+            const attendanceByMeetingId = new Map((attendanceData || []).map((row) => [row.meeting_id, Boolean(row.present)]));
             const mentorIds = Array.from(new Set((meetingData || []).map((meeting) => meeting.mentor_id).filter(Boolean)));
             const { data: mentorData } = mentorIds.length > 0
                 ? await supabase
@@ -64,6 +73,7 @@ export default function StudentMeetingsPage() {
                 mentorName: mentorMap.get(meeting.mentor_id)?.name || 'Unknown Mentor',
                 mentorEmail: mentorMap.get(meeting.mentor_id)?.email || '',
                 batchName: batchMap.get(meeting.batch_id) || 'Unknown Batch',
+                attendancePresent: attendanceByMeetingId.has(meeting.id) ? attendanceByMeetingId.get(meeting.id) : null,
             }));
             setMeetings(formattedMeetings);
             setDataLoading(false);
@@ -91,6 +101,15 @@ export default function StudentMeetingsPage() {
             case 'Cancelled':
                 return 'bg-destructive/20 text-destructive';
         }
+    };
+    const getAttendanceBadge = (attendancePresent) => {
+        if (attendancePresent === true) {
+            return { label: 'Attended', className: 'bg-green-500/20 text-green-600' };
+        }
+        if (attendancePresent === false) {
+            return { label: 'Missed', className: 'bg-red-500/20 text-red-600' };
+        }
+        return { label: 'Attendance Pending', className: 'bg-yellow-500/20 text-yellow-700' };
     };
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground">Loading meetings...</p>;
@@ -124,19 +143,19 @@ export default function StudentMeetingsPage() {
             <p className="text-sm text-muted-foreground">
               No upcoming meetings are scheduled for your batches yet.
             </p>
-          </Card>) : (<div className="space-y-4">
-            {upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="border-border p-3">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-2">
+          </Card>) : (<div className="space-y-3">
+            {upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="border-border p-2.5">
+                <div className="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-1.5">
                     <div>
-                      <h3 className="text-xl font-semibold text-foreground">{meeting.title}</h3>
+                      <h3 className="text-lg font-semibold text-foreground">{meeting.title}</h3>
 
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-2 md:grid-cols-2">
                       <p className="flex items-center gap-2 text-sm text-muted-foreground">
                         <User className="h-4 w-4"/>
-                        {meeting.mentorName} {meeting.mentorEmail ? `(${meeting.mentorEmail})` : ''}
+                        {meeting.mentorName}
                       </p>
                       <p className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Layers3 className="h-4 w-4"/>
@@ -152,16 +171,21 @@ export default function StudentMeetingsPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-secondary/40 p-4">
+                    <div className="rounded-lg bg-secondary/40 p-2.5">
                       <p className="flex items-center gap-2 text-sm font-medium text-foreground">
                         <FileText className="h-4 w-4"/>
                         Details Shared By Mentor
                       </p>
-                      <p className="mt-2 text-sm text-muted-foreground">{meeting.description}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{meeting.description}</p>
                     </div>
                   </div>
 
-                  <Badge className={getStatusColor(meeting.status)}>{meeting.status}</Badge>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge className={`${getStatusColor(meeting.status)} px-2 py-0.5 text-xs`}>{meeting.status}</Badge>
+                    <Badge className={`${getAttendanceBadge(meeting.attendancePresent).className} px-2 py-0.5 text-xs`}>
+                      {getAttendanceBadge(meeting.attendancePresent).label}
+                    </Badge>
+                  </div>
                 </div>
               </Card>))}
           </div>)}
@@ -171,10 +195,10 @@ export default function StudentMeetingsPage() {
         <h2 className="text-xl font-semibold text-foreground">Past Meetings</h2>
         {pastMeetings.length === 0 ? (<Card className="border-border p-6">
             <p className="text-sm text-muted-foreground">No past meetings found for your batches.</p>
-          </Card>) : (<div className="space-y-3">
-            {pastMeetings.map((meeting) => (<Card key={meeting.id} className="border-border p-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-2">
+          </Card>) : (<div className="space-y-2.5">
+            {pastMeetings.map((meeting) => (<Card key={meeting.id} className="border-border p-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1.5">
                     <h3 className="font-semibold text-foreground">{meeting.title}</h3>
                     <p className="text-sm text-muted-foreground">
                       {meeting.mentorName} • {meeting.batchName}
@@ -184,7 +208,12 @@ export default function StudentMeetingsPage() {
                     </p>
                     <p className="text-sm text-muted-foreground">{meeting.description}</p>
                   </div>
-                  <Badge className={getStatusColor(meeting.status)}>{meeting.status}</Badge>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge className={`${getStatusColor(meeting.status)} px-2 py-0.5 text-xs`}>{meeting.status}</Badge>
+                    <Badge className={`${getAttendanceBadge(meeting.attendancePresent).className} px-2 py-0.5 text-xs`}>
+                      {getAttendanceBadge(meeting.attendancePresent).label}
+                    </Badge>
+                  </div>
                 </div>
               </Card>))}
           </div>)}

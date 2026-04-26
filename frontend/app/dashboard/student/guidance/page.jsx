@@ -279,7 +279,7 @@ export default function StudentGuidancePage() {
                   <MessageSquare className="mb-3 h-10 w-10 opacity-40"/>
                   <p>No guidance messages yet.</p>
                   <p className="text-sm">Ask your first question below.</p>
-                </div>) : (messages.map((message) => (<div key={message.id} className={`group relative max-w-[80%] rounded-2xl px-4 py-3 ${message.senderRole === "student"
+                </div>) : (messages.map((message) => (<div key={message.id} className={`group relative max-w-[68%] rounded-xl px-3 py-2 ${message.senderRole === "student"
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"}`}>
                     {editingMessageId === message.id ? (
@@ -301,7 +301,7 @@ export default function StudentGuidancePage() {
                     ) : (
                       <>
                         <p className="whitespace-pre-wrap text-sm">{message.message}</p>
-                    {message.attachmentUrl && (<div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2">
+                    {message.attachmentUrl && (<div className="mt-1.5 rounded-md border border-border/60 bg-background/40 p-1.5">
                         {message.attachmentType?.startsWith("image/") ? (<a href={message.attachmentUrl} target="_blank" rel="noreferrer" className="block">
                             <img src={message.attachmentUrl} alt={message.attachmentName || "Guidance attachment"} className="max-h-52 rounded-md object-contain"/>
                           </a>) : (<a href={message.attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm underline">
@@ -309,8 +309,8 @@ export default function StudentGuidancePage() {
                             {message.attachmentName || "Open attachment"}
                           </a>)}
                       </div>)}
-                    <div className="mt-2 flex items-center justify-between">
-                    <p className={`mt-2 text-[11px] ${message.senderRole === "student"
+                    <div className="mt-1.5 flex items-center justify-between">
+                    <p className={`text-[11px] ${message.senderRole === "student"
                     ? "text-primary-foreground/80"
                     : "text-muted-foreground"}`}>
                       {new Date(message.createdAt).toLocaleString()}

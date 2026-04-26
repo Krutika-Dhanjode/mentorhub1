@@ -45,7 +45,7 @@ export default function MentorBatchChatIndexPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
           <MessageSquare className="w-8 h-8 text-primary" />
-          Batch Chat
+          Group Guidance
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Select a batch to open its group chat room.

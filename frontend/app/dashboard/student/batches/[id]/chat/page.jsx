@@ -32,7 +32,7 @@ export default function StudentBatchChatPage() {
           .single();
 
         if (studentError || !studentAssignment) {
-          toast.error("You don't have access to this batch chat.");
+          toast.error("You don't have access to this group guidance.");
           router.push('/dashboard/student');
           return;
         }

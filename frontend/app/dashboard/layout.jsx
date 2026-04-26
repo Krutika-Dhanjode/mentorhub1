@@ -29,18 +29,18 @@ export default function DashboardLayout({ children }) {
         } else if (pathname.includes('/settings')) {
             title = 'Profile';
         } else if (pathname.includes('/batches') && pathname.includes('/chat')) {
-            title = 'Batch Chat';
+            title = 'Group Guidance';
         } else if (pathname === '/dashboard/mentor/chat') {
-            title = 'Batch Chat';
+            title = 'Group Guidance';
         } else {
             title = 'Mentor Dashboard';
         }
     } else if (pathname.startsWith('/dashboard/student')) {
         userRole = 'student';
         if (pathname.includes('/batches') && pathname.includes('/chat')) {
-            title = 'Batch Chat';
+            title = 'Group Guidance';
         } else if (pathname === '/dashboard/student/chat') {
-            title = 'Batch Chat';
+            title = 'Group Guidance';
         } else if (pathname.includes('/batches')) {
             title = 'My Batches';
         } else if (pathname.includes('/meetings')) {

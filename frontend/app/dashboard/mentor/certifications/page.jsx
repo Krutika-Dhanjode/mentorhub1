@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, XCircle, Clock, Award, TrendingUp, FileText, Paperclip, Star, MessageSquare } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Award, TrendingUp, FileText, Paperclip, Star, MessageSquare, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -194,6 +194,21 @@ export default function MentorCertificationsPage() {
         }
     };
 
+    const openVerifyDialog = (cert) => {
+        setSelectedCertification(cert);
+        setVerificationData({
+            score: cert.mentor_score != null ? String(cert.mentor_score) : '',
+            feedback: cert.mentor_feedback || '',
+        });
+        setIsVerifyOpen(true);
+    };
+
+    const openRejectDialog = (cert) => {
+        setSelectedCertification(cert);
+        setRejectionFeedback(cert.mentor_feedback || '');
+        setIsRejectOpen(true);
+    };
+
     const getStatusIcon = (status) => {
         switch (status) {
             case 'verified':
@@ -327,13 +342,13 @@ export default function MentorCertificationsPage() {
             <div className="mb-6">
                 <Card className="border-border bg-card p-6">
                     <h2 className="text-xl font-semibold text-foreground mb-4">Certification Types</h2>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={170}>
                         <PieChart>
                             <Pie
                                 data={typeDistribution}
                                 cx="50%"
                                 cy="50%"
-                                outerRadius={80}
+                                outerRadius={50}
                                 fill="#8884d8"
                                 dataKey="count"
                                 label={({ type, count }) => `${type}: ${count}`}
@@ -466,110 +481,107 @@ export default function MentorCertificationsPage() {
                                         {new Date(cert.created_at).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell>
-                                        {cert.verification_status === 'pending' && (
-                                            <div className="flex gap-2">
-                                                <Dialog open={isVerifyOpen && selectedCertification?.id === cert.id} onOpenChange={(open) => {
-                                                    setIsVerifyOpen(open);
-                                                    if (open) setSelectedCertification(cert);
-                                                }}>
-                                                    <DialogTrigger asChild>
-                                                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                                                            <CheckCircle className="w-4 h-4 mr-1"/>
-                                                            Verify
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                        <DialogHeader>
-                                                            <DialogTitle>Verify Certification</DialogTitle>
-                                                            <DialogDescription>
-                                                                Review and score this certification submission.
-                                                            </DialogDescription>
-                                                        </DialogHeader>
-                                                        <div className="space-y-4 mt-4">
-                                                            <div className="space-y-2">
-                                                                <Label htmlFor="score">Score (0-10)</Label>
-                                                                <Input
-                                                                    id="score"
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="10"
-                                                                    step="0.1"
-                                                                    value={verificationData.score}
-                                                                    onChange={(e) => setVerificationData({...verificationData, score: e.target.value})}
-                                                                    placeholder="8.5"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label htmlFor="feedback">Feedback (Optional)</Label>
-                                                                <Textarea
-                                                                    id="feedback"
-                                                                    value={verificationData.feedback}
-                                                                    onChange={(e) => setVerificationData({...verificationData, feedback: e.target.value})}
-                                                                    placeholder="Great work! Well done on completing this certification."
-                                                                />
-                                                            </div>
-                                                            <div className="flex gap-2 justify-end">
-                                                                <Button variant="outline" onClick={() => setIsVerifyOpen(false)}>
-                                                                    Cancel
-                                                                </Button>
-                                                                <Button onClick={handleVerify} disabled={!verificationData.score}>
-                                                                    Verify & Score
-                                                                </Button>
-                                                            </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Dialog open={isVerifyOpen && selectedCertification?.id === cert.id} onOpenChange={(open) => {
+                                                setIsVerifyOpen(open);
+                                            }}>
+                                                <DialogTrigger asChild>
+                                                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openVerifyDialog(cert)}>
+                                                        {cert.verification_status !== 'pending' ? <Pencil className="w-4 h-4 mr-1"/> : <CheckCircle className="w-4 h-4 mr-1"/>}
+                                                        {cert.verification_status === 'pending' ? 'Verify' : 'Edit Verify'}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>{cert.verification_status === 'pending' ? 'Verify Certification' : 'Edit Verification'}</DialogTitle>
+                                                        <DialogDescription>
+                                                            Review and score this certification submission.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4 mt-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="score">Score (0-10)</Label>
+                                                            <Input
+                                                                id="score"
+                                                                type="number"
+                                                                min="0"
+                                                                max="10"
+                                                                step="0.1"
+                                                                value={verificationData.score}
+                                                                onChange={(e) => setVerificationData({...verificationData, score: e.target.value})}
+                                                                placeholder="8.5"
+                                                            />
                                                         </div>
-                                                    </DialogContent>
-                                                </Dialog>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="feedback">Feedback (Optional)</Label>
+                                                            <Textarea
+                                                                id="feedback"
+                                                                value={verificationData.feedback}
+                                                                onChange={(e) => setVerificationData({...verificationData, feedback: e.target.value})}
+                                                                placeholder="Great work! Well done on completing this certification."
+                                                            />
+                                                        </div>
+                                                        <div className="flex gap-2 justify-end">
+                                                            <Button variant="outline" onClick={() => setIsVerifyOpen(false)}>
+                                                                Cancel
+                                                            </Button>
+                                                            <Button onClick={handleVerify} disabled={!verificationData.score}>
+                                                                {cert.verification_status === 'pending' ? 'Verify & Score' : 'Update Verification'}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
 
-                                                <Dialog open={isRejectOpen && selectedCertification?.id === cert.id} onOpenChange={(open) => {
-                                                    setIsRejectOpen(open);
-                                                    if (open) setSelectedCertification(cert);
-                                                }}>
-                                                    <DialogTrigger asChild>
-                                                        <Button size="sm" variant="destructive">
-                                                            <XCircle className="w-4 h-4 mr-1"/>
-                                                            Reject
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                        <DialogHeader>
-                                                            <DialogTitle>Reject Certification</DialogTitle>
-                                                            <DialogDescription>
-                                                                Provide feedback for why this certification is being rejected.
-                                                            </DialogDescription>
-                                                        </DialogHeader>
-                                                        <div className="space-y-4 mt-4">
-                                                            <div className="space-y-2">
-                                                                <Label htmlFor="rejection-feedback">Feedback</Label>
-                                                                <Textarea
-                                                                    id="rejection-feedback"
-                                                                    value={rejectionFeedback}
-                                                                    onChange={(e) => setRejectionFeedback(e.target.value)}
-                                                                    placeholder="Please provide more details or resubmit with proper documentation."
-                                                                />
-                                                            </div>
-                                                            <div className="flex gap-2 justify-end">
-                                                                <Button variant="outline" onClick={() => setIsRejectOpen(false)}>
-                                                                    Cancel
-                                                                </Button>
-                                                                <Button variant="destructive" onClick={handleReject}>
-                                                                    Reject
-                                                                </Button>
-                                                            </div>
+                                            <Dialog open={isRejectOpen && selectedCertification?.id === cert.id} onOpenChange={(open) => {
+                                                setIsRejectOpen(open);
+                                            }}>
+                                                <DialogTrigger asChild>
+                                                    <Button size="sm" variant="destructive" onClick={() => openRejectDialog(cert)}>
+                                                        {cert.verification_status !== 'pending' ? <Pencil className="w-4 h-4 mr-1"/> : <XCircle className="w-4 h-4 mr-1"/>}
+                                                        {cert.verification_status === 'pending' ? 'Reject' : 'Edit Reject'}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>{cert.verification_status === 'pending' ? 'Reject Certification' : 'Edit Rejection'}</DialogTitle>
+                                                        <DialogDescription>
+                                                            Provide feedback for why this certification is being rejected.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4 mt-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="rejection-feedback">Feedback</Label>
+                                                            <Textarea
+                                                                id="rejection-feedback"
+                                                                value={rejectionFeedback}
+                                                                onChange={(e) => setRejectionFeedback(e.target.value)}
+                                                                placeholder="Please provide more details or resubmit with proper documentation."
+                                                            />
                                                         </div>
-                                                    </DialogContent>
-                                                </Dialog>
-                                            </div>
-                                        )}
-                                        {cert.verification_status !== 'pending' && cert.mentor_feedback && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => toast.info(`Feedback: ${cert.mentor_feedback}`)}
-                                            >
-                                                <MessageSquare className="w-4 h-4 mr-1"/>
-                                                View Feedback
-                                            </Button>
-                                        )}
+                                                        <div className="flex gap-2 justify-end">
+                                                            <Button variant="outline" onClick={() => setIsRejectOpen(false)}>
+                                                                Cancel
+                                                            </Button>
+                                                            <Button variant="destructive" onClick={handleReject}>
+                                                                {cert.verification_status === 'pending' ? 'Reject' : 'Update Rejection'}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+
+                                            {cert.mentor_feedback && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => toast.info(`Feedback: ${cert.mentor_feedback}`)}
+                                                >
+                                                    <MessageSquare className="w-4 h-4 mr-1"/>
+                                                    View Feedback
+                                                </Button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))

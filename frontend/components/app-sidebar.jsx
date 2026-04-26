@@ -14,7 +14,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
         if (normalizedRole === 'student') {
             return [
                 { label: 'My Batches', href: '/dashboard/student/batches', icon: <Layers3 className="w-5 h-5"/> },
-                { label: 'Batch Chat', href: '/dashboard/student/chat', icon: <Hash className="w-5 h-5"/> },
+                { label: 'Group Guidance', href: '/dashboard/student/chat', icon: <Hash className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/student/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Guidance', href: '/dashboard/student/guidance', icon: <MessageSquare className="w-5 h-5"/> },
                 { label: 'Progress', href: '/dashboard/student/progress', icon: <TrendingUp className="w-5 h-5"/> },
@@ -28,7 +28,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
                 { label: 'Analytics', href: '/dashboard/mentor/analytics', icon: <TrendingUp className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/mentor/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Guidance', href: '/dashboard/mentor/guidance', icon: <MessageSquare className="w-5 h-5"/> },
-                { label: 'Batch Chat', href: '/dashboard/mentor/chat', icon: <Hash className="w-5 h-5"/> },
+                { label: 'Group Guidance', href: '/dashboard/mentor/chat', icon: <Hash className="w-5 h-5"/> },
                 { label: 'Profile', href: '/dashboard/mentor/settings', icon: <Settings className="w-5 h-5"/> },
             ];
         }

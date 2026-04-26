@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, TrendingUp, Award, FileText, Upload, Paperclip } from 'lucide-react';
+import { Plus, TrendingUp, Award, FileText, Upload, Paperclip, Trash2 } from 'lucide-react';
 import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -24,13 +24,13 @@ export default function StudentProgressPage() {
     const [mentorScore, setMentorScore] = useState(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [deletingEntryId, setDeletingEntryId] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [selectedFile, setSelectedFile] = useState(null);
     const [newEntry, setNewEntry] = useState({
         type: '',
         title: '',
         description: '',
-        value: '',
         certificationType: '',
     });
 
@@ -129,8 +129,8 @@ export default function StudentProgressPage() {
             entry_type: newEntry.type,
             title: newEntry.title,
             description: newEntry.description,
-            score: newEntry.value ? Number(newEntry.value) : null,
-            value_text: newEntry.value || null,
+            score: null,
+            value_text: null,
             attachments: attachmentUrl ? [attachmentUrl] : [],
             attachment_names: attachmentName ? [attachmentName] : [],
         });
@@ -139,11 +139,33 @@ export default function StudentProgressPage() {
             setIsSaving(false);
             return;
         }
-        setNewEntry({ type: '', title: '', description: '', value: '' });
+        setNewEntry({ type: '', title: '', description: '', certificationType: '' });
         setSelectedFile(null);
         setIsAddOpen(false);
         setIsSaving(false);
         await fetchProgress();
+    };
+
+    const handleDeleteProgress = async (entryId) => {
+        if (!user || !entryId)
+            return;
+        const confirmed = window.confirm('Delete this progress entry permanently?');
+        if (!confirmed)
+            return;
+        setDeletingEntryId(entryId);
+        const { error } = await supabase
+            .from('progress')
+            .delete()
+            .eq('id', entryId)
+            .eq('student_id', user.id);
+        if (error) {
+            toast.error('Unable to delete progress entry: ' + error.message);
+            setDeletingEntryId(null);
+            return;
+        }
+        setProgress((prev) => prev.filter((entry) => entry.id !== entryId));
+        toast.success('Progress entry deleted.');
+        setDeletingEntryId(null);
     };
 
     const getTypeIcon = (type) => {
@@ -314,11 +336,6 @@ export default function StudentProgressPage() {
                 <Label htmlFor="title">Title</Label>
                 <Input id="title" placeholder="Semester 6 Results, AWS Certification, Internship Report" value={newEntry.title} onChange={(event) => setNewEntry({ ...newEntry, title: event.target.value })} className="bg-card border-border"/>
               </div>
-
-              {newEntry.type && (<div className="space-y-2">
-                  <Label htmlFor="value">{newEntry.type === 'cgpa' ? 'CGPA' : 'Score (out of 10)'}</Label>
-                  <Input id="value" placeholder={newEntry.type === 'cgpa' ? '8.9' : '8.5'} type="number" step="0.1" min="0" max="10" value={newEntry.value} onChange={(event) => setNewEntry({ ...newEntry, value: event.target.value })} className="bg-card border-border"/>
-                </div>)}
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -647,7 +664,7 @@ export default function StudentProgressPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
                 <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
+                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(_, payload) => payload?.[0]?.payload?.label || 'Achievement'} formatter={(value) => [
                       `${value}/10`,
                       'Score',
                   ]}/>}/>
@@ -670,11 +687,12 @@ export default function StudentProgressPage() {
                 <TableHead className="text-foreground font-semibold">Score</TableHead>
                 <TableHead className="text-foreground font-semibold">Attachment</TableHead>
                 <TableHead className="text-foreground font-semibold">Date</TableHead>
+                <TableHead className="text-foreground font-semibold text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {progress.length === 0 ? (<TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     No progress entries added yet.
                   </TableCell>
                 </TableRow>) : (progress.map((entry) => (<TableRow key={entry.id} className="border-border hover:bg-secondary/30 transition-colors">
@@ -722,6 +740,17 @@ export default function StudentProgressPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(entry.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="destructive"
+                        onClick={() => handleDeleteProgress(entry.id)}
+                        disabled={deletingEntryId === entry.id}
+                        className="h-6 px-1.5 text-[11px] rounded-md gap-1"
+                      >
+                        <Trash2 className="w-3 h-3"/>
+                        {deletingEntryId === entry.id ? 'Deleting...' : 'Delete'}
+                      </Button>
                     </TableCell>
                   </TableRow>)))}
             </TableBody>
