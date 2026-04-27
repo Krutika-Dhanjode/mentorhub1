@@ -424,24 +424,24 @@ export default function MentorMeetingsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Upcoming Meetings</h2>
 
-        {loading ? (<Card className="p-4">
+        {loading ? (<Card className="p-3">
             <p>Loading meetings...</p>
-          </Card>) : batches.length === 0 ? (<Card className="p-4">
+          </Card>) : batches.length === 0 ? (<Card className="p-3">
             <p className="text-muted-foreground">
               No batches found for this mentor. Please create a batch from the students page first.
             </p>
-          </Card>) : upcomingMeetings.length === 0 ? (<Card className="p-4">
+          </Card>) : upcomingMeetings.length === 0 ? (<Card className="p-3">
             <p className="text-muted-foreground">No upcoming meetings.</p>
-          </Card>) : (upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="p-4">
-              <div className="space-y-2">
-                <p className="font-bold">{meeting.title}</p>
+          </Card>) : (upcomingMeetings.map((meeting) => (<Card key={meeting.id} className="p-3">
+              <div className="space-y-1.5">
+                <p className="font-bold text-base">{meeting.title}</p>
                 <p className="text-sm text-muted-foreground">{meeting.batch}</p>
-                <p>
+                <p className="text-sm">
                   {meeting.date} - {meeting.time}
                 </p>
                 <p className="text-sm text-muted-foreground">{meeting.description}</p>
                 <p className="text-xs text-muted-foreground">Status: {meeting.status}</p>
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-0.5">
                   <Button variant="outline" size="sm" onClick={() => handleEditMeeting(meeting)}>
                     <Pencil className="w-4 h-4"/>
                     Edit
@@ -466,9 +466,9 @@ export default function MentorMeetingsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Past Meetings</h2>
 
-        {pastMeetings.length === 0 ? (<Card className="p-3">
+        {pastMeetings.length === 0 ? (<Card className="p-2.5">
             <p className="text-muted-foreground">No past meetings yet.</p>
-          </Card>) : (pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-3">
+          </Card>) : (pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-2.5">
               <div className="space-y-0.5">
                 <p className="font-bold text-base">{meeting.title}</p>
                 <p className="text-sm text-muted-foreground">{meeting.batch}</p>

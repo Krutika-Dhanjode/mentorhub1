@@ -374,6 +374,7 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
             .update({
                 start_date: editStartDate || null,
                 end_date: editEndDate || null,
+                status: editStatus,
             })
             .eq('id', editingDatesStudent.assignmentId);
 
@@ -383,11 +384,11 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
         }
 
         setStudents(current => current.map(s => 
-            s.id === editingDatesStudent.id ? { ...s, startDate: editStartDate, endDate: editEndDate } : s
+            s.id === editingDatesStudent.id ? { ...s, startDate: editStartDate, endDate: editEndDate, status: editStatus } : s
         ));
         setEditingDatesStudent(null);
         setIsEditDatesOpen(false);
-        toast.success('Dates updated successfully!');
+        toast.success('Dates and status updated successfully!');
     };
     const handleRemoveStudentFromBatch = async (student) => {
         const confirmed = window.confirm(`Remove ${student.name} from batch "${student.batch}"? This will also remove them from your mentoring list for that batch.`);
@@ -916,11 +917,21 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
     const getStatusColor = (status) => {
         switch (status) {
             case 'Excellent':
-                return 'bg-primary/20 text-primary';
+                return 'bg-emerald-500/20 text-emerald-700 border border-emerald-600/30';
+            case 'Outstanding':
+                return 'bg-cyan-500/20 text-cyan-700 border border-cyan-600/30';
             case 'Good Standing':
-                return 'bg-accent/20 text-accent';
+                return 'bg-blue-500/20 text-blue-700 border border-blue-600/30';
+            case 'Average':
+                return 'bg-slate-500/20 text-slate-700 border border-slate-600/30';
+            case 'Needs Improvement':
+                return 'bg-amber-500/20 text-amber-700 border border-amber-600/30';
             case 'At Risk':
-                return 'bg-destructive/20 text-destructive';
+                return 'bg-orange-500/20 text-orange-700 border border-orange-600/30';
+            case 'Warning':
+                return 'bg-red-500/20 text-red-700 border border-red-600/30';
+            default:
+                return 'bg-muted text-muted-foreground border border-border';
         }
     };
     const comparisonStudents = useMemo(() => {
@@ -1209,7 +1220,9 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 <TableHead className="text-foreground font-semibold">Dates</TableHead>
                 <TableHead className="text-foreground font-semibold">Attendance</TableHead>
                 <TableHead className="text-foreground font-semibold">Status</TableHead>
-                <TableHead className="text-right text-foreground font-semibold">Actions</TableHead>
+                <TableHead className="text-center text-foreground font-semibold">Edit</TableHead>
+                <TableHead className="text-center text-foreground font-semibold">Delete</TableHead>
+                <TableHead className="text-center text-foreground font-semibold">Report</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1234,30 +1247,33 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                   <TableCell>
                     <Badge className={getStatusColor(student.status)}>{student.status}</Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={(e) => {
+                  <TableCell className="text-center">
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={(e) => {
                         e.stopPropagation();
                         setEditingDatesStudent(student);
                         setEditStartDate(student.startDate || '');
                         setEditEndDate(student.endDate || '');
+                        setEditStatus(student.status || 'Good Standing');
                         setIsEditDatesOpen(true);
                       }} title="Edit Dates">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => {
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveStudentFromBatch(student);
                       }} disabled={removingStudentId === student.id} title="Remove Student">
-                        <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Link href={`/dashboard/mentor/students/${student.userId}`}>
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
+                        Report
+                        <ChevronRight className="ml-1 h-3 w-3"/>
                       </Button>
-                      <Link href={`/dashboard/mentor/students/${student.userId}`}>
-                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
-                          Report
-                          <ChevronRight className="ml-1 h-3 w-3"/>
-                        </Button>
-                      </Link>
-                    </div>
+                    </Link>
                   </TableCell>
                 </TableRow>))}
             </TableBody>
@@ -1268,9 +1284,9 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
       <Dialog open={isEditDatesOpen} onOpenChange={setIsEditDatesOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Student Dates</DialogTitle>
+            <DialogTitle>Edit Student Details</DialogTitle>
             <DialogDescription>
-              Update the start and end dates for {editingDatesStudent?.name} in {editingDatesStudent?.batch}
+              Update the start date, end date, and status for {editingDatesStudent?.name} in {editingDatesStudent?.batch}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -1282,9 +1298,26 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
               <Label htmlFor="editEndDate">End Date (Optional)</Label>
               <Input id="editEndDate" type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} className="bg-card border-border"/>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="editStatus">Status</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger id="editStatus" className="bg-card border-border">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Excellent">Excellent</SelectItem>
+                  <SelectItem value="Outstanding">Outstanding</SelectItem>
+                  <SelectItem value="Good Standing">Good Standing</SelectItem>
+                  <SelectItem value="Average">Average</SelectItem>
+                  <SelectItem value="Needs Improvement">Needs Improvement</SelectItem>
+                  <SelectItem value="At Risk">At Risk</SelectItem>
+                  <SelectItem value="Warning">Warning</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setIsEditDatesOpen(false)}>Cancel</Button>
-              <Button onClick={handleUpdateDates}>Save Dates</Button>
+              <Button onClick={handleUpdateDates}>Save Changes</Button>
             </div>
           </div>
         </DialogContent>

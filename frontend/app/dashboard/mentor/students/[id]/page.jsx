@@ -419,7 +419,7 @@ export default function StudentReportPage({ params }) {
                     <option value="Warning">Warning</option>
                   </select>
                 </div>
-                <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore} className="w-fit">
+                <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore} className="w-fit border-green-600 bg-green-600 text-white hover:bg-green-700 hover:text-white">
                   {savingMentorScore ? "Saving..." : "Save Score & Status"}
                 </Button>
               </div>
