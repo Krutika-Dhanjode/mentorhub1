@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { useMemo } from "react";
 import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { useUser } from "@/hooks/use-user";
+import { usePathname } from "next/navigation";
 const escapePdfText = (value) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 const buildPdfBlob = (lines) => {
     const linesPerPage = 32;
@@ -54,6 +56,8 @@ const buildPdfBlob = (lines) => {
 export default function StudentReportPage({ params }) {
     const { id } = use(params);
     const supabase = createClient();
+    const { user: viewerUser } = useUser();
+    const pathname = usePathname();
     const [student, setStudent] = useState(null);
     const [meetings, setMeetings] = useState([]);
     const [progress, setProgress] = useState([]);
@@ -64,6 +68,16 @@ export default function StudentReportPage({ params }) {
     const [mentorStatusDraft, setMentorStatusDraft] = useState("Good Standing");
     const [lastSentTime, setLastSentTime] = useState("");
     const [pageLoading, setPageLoading] = useState(true);
+    const isHodView = String(viewerUser?.role || "").toLowerCase() === "hod" || pathname.startsWith("/dashboard/hod");
+    const backHref = isHodView ? "/dashboard/hod/mentors" : "/dashboard/mentor/students";
+    const visibleProgress = useMemo(() => {
+        if (!isHodView)
+            return progress;
+        return progress.filter((entry) => {
+            const entryType = String(entry.entry_type || "").toLowerCase();
+            return entryType === "cgpa" || entryType === "marks" || entry.verification_status === "verified";
+        });
+    }, [progress, isHodView]);
 
     const chartData = useMemo(() => {
         const categoryMap = {
@@ -121,6 +135,10 @@ export default function StudentReportPage({ params }) {
         fetchStudent();
     }, [id]);
     const handleSaveMentorScore = async () => {
+        if (isHodView) {
+            toast.error("HOD view is read-only. Only mentors can update score and status.");
+            return;
+        }
         const parsed = mentorScoreDraft === "" ? null : Number(mentorScoreDraft);
         if (mentorScoreDraft !== "" && (Number.isNaN(parsed) || parsed < 0 || parsed > 10)) {
             toast.error("Please enter a valid mentor score between 0 and 10.");
@@ -217,6 +235,10 @@ export default function StudentReportPage({ params }) {
         fetchProgress();
     }, [id]);
     const handleVerifyEntry = async (entryId, action) => {
+        if (isHodView) {
+            toast.error("HOD view is read-only. Only mentors can verify or reject entries.");
+            return;
+        }
         const rawValue = scoreDraftByEntryId[entryId];
         let parsed = undefined;
 
@@ -284,7 +306,7 @@ export default function StudentReportPage({ params }) {
             `CGPA: ${student.cgpa || 0}`,
             `Mentor Score (Out of 10): ${student.mentor_report_score ?? "N/A"}`,
             `Meetings Count: ${meetings.length}`,
-            `Progress Entries: ${progress.length}`,
+            `Progress Entries: ${visibleProgress.length}`,
             "",
             "Meetings",
             "----------------------------------------",
@@ -301,11 +323,11 @@ export default function StudentReportPage({ params }) {
             });
         }
         lines.push("", "Progress", "----------------------------------------");
-        if (progress.length === 0) {
+        if (visibleProgress.length === 0) {
             lines.push("No progress entries recorded.");
         }
         else {
-            progress.forEach((entry) => {
+            visibleProgress.forEach((entry) => {
                 lines.push(`Title: ${entry.title || "Untitled Progress"}`);
                 lines.push(`Type: ${entry.entry_type || "N/A"}`);
                 lines.push(`Value: ${entry.value_text || entry.score || "N/A"}`);
@@ -343,7 +365,7 @@ export default function StudentReportPage({ params }) {
     return (<div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/mentor/students">
+        <Link href={backHref}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="w-5 h-5"/>
           </Button>
@@ -378,26 +400,34 @@ export default function StudentReportPage({ params }) {
         <Card className="p-4">
           <p>Mentor Score & Status</p>
           <h3>{student.mentor_report_score ?? "Not given"}</h3>
-          <div className="mt-3 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="number" min="0" max="10" step="0.1" value={mentorScoreDraft} onChange={(event) => setMentorScoreDraft(event.target.value)} placeholder="0 - 10" className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
-              <select value={mentorStatusDraft} onChange={(e) => setMentorStatusDraft(e.target.value)} className="h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground">
-                <option value="Excellent">Excellent</option>
-                <option value="Outstanding">Outstanding</option>
-                <option value="Good Standing">Good Standing</option>
-                <option value="Average">Average</option>
-                <option value="Needs Improvement">Needs Improvement</option>
-                <option value="At Risk">At Risk</option>
-                <option value="Warning">Warning</option>
-              </select>
-            </div>
-            <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore} className="w-fit">
-              {savingMentorScore ? "Saving..." : "Save Score & Status"}
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Last Sent Time: {lastSentTime ? new Date(lastSentTime).toLocaleString() : "Not sent yet"}
-          </p>
+          {isHodView ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Read-only for HOD. Score and status can be updated only by mentor.
+            </p>
+          ) : (
+            <>
+              <div className="mt-3 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input type="number" min="0" max="10" step="0.1" value={mentorScoreDraft} onChange={(event) => setMentorScoreDraft(event.target.value)} placeholder="0 - 10" className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"/>
+                  <select value={mentorStatusDraft} onChange={(e) => setMentorStatusDraft(e.target.value)} className="h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground">
+                    <option value="Excellent">Excellent</option>
+                    <option value="Outstanding">Outstanding</option>
+                    <option value="Good Standing">Good Standing</option>
+                    <option value="Average">Average</option>
+                    <option value="Needs Improvement">Needs Improvement</option>
+                    <option value="At Risk">At Risk</option>
+                    <option value="Warning">Warning</option>
+                  </select>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleSaveMentorScore} disabled={savingMentorScore} className="w-fit">
+                  {savingMentorScore ? "Saving..." : "Save Score & Status"}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Last Sent Time: {lastSentTime ? new Date(lastSentTime).toLocaleString() : "Not sent yet"}
+              </p>
+            </>
+          )}
         </Card>
       </div>
 
@@ -439,7 +469,7 @@ export default function StudentReportPage({ params }) {
       <Card className="p-4">
         <h3 className="text-lg font-semibold mb-4">Progress Entries</h3>
 
-        {progress.length === 0 ? (<p className="text-sm text-muted-foreground">No progress entries saved by this student yet.</p>) : (progress.map((p) => (<div key={p.id} className="mb-3 rounded border p-3">
+        {visibleProgress.length === 0 ? (<p className="text-sm text-muted-foreground">{isHodView ? "No mentor-approved progress entries available for this student yet." : "No progress entries saved by this student yet."}</p>) : (visibleProgress.map((p) => (<div key={p.id} className="mb-3 rounded border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-semibold">{p.title || "Untitled Progress"}</p>
                 {p.entry_type && <Badge variant="outline">{p.entry_type}</Badge>}
@@ -457,7 +487,7 @@ export default function StudentReportPage({ params }) {
                 {p.description || "No description provided."}
               </p>
 
-              {p.entry_type !== "cgpa" && (!p.verification_status || p.verification_status === "pending") && (<div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 border-border/50">
+              {!isHodView && p.entry_type !== "cgpa" && (!p.verification_status || p.verification_status === "pending") && (<div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 border-border/50">
                   <label htmlFor={`verify-score-${p.id}`} className="text-xs font-medium text-muted-foreground">
                     Assign Score (0-10)
                   </label>

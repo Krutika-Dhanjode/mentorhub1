@@ -36,6 +36,7 @@ export function AppSidebar({ userRole = 'Admin' }) {
             // Admin
             return [
                 { label: 'Mentors', href: '/dashboard/hod/mentors', icon: <UserCog className="w-5 h-5"/> },
+                { label: 'Progress', href: '/dashboard/hod/progress', icon: <TrendingUp className="w-5 h-5"/> },
                 { label: 'Meetings', href: '/dashboard/hod/meetings', icon: <Calendar className="w-5 h-5"/> },
                 { label: 'Schedule', href: '/dashboard/hod/schedule', icon: <CalendarPlus className="w-5 h-5"/> },
                 { label: 'Profile', href: '/dashboard/hod/settings', icon: <Settings className="w-5 h-5"/> },

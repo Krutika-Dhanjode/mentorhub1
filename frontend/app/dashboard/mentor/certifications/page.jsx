@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -35,6 +35,7 @@ export default function MentorCertificationsPage() {
     const [filterType, setFilterType] = useState('all');
     const [batches, setBatches] = useState([]);
     const [selectedBatchId, setSelectedBatchId] = useState('all');
+    const [editActionId, setEditActionId] = useState(null);
 
     const fetchData = async () => {
         if (!user) return;
@@ -195,6 +196,7 @@ export default function MentorCertificationsPage() {
     };
 
     const openVerifyDialog = (cert) => {
+        setEditActionId(null);
         setSelectedCertification(cert);
         setVerificationData({
             score: cert.mentor_score != null ? String(cert.mentor_score) : '',
@@ -204,6 +206,7 @@ export default function MentorCertificationsPage() {
     };
 
     const openRejectDialog = (cert) => {
+        setEditActionId(null);
         setSelectedCertification(cert);
         setRejectionFeedback(cert.mentor_feedback || '');
         setIsRejectOpen(true);
@@ -482,15 +485,44 @@ export default function MentorCertificationsPage() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 px-2 text-xs"
+                                                onClick={() => setEditActionId((current) => (current === cert.id ? null : cert.id))}
+                                            >
+                                                <Pencil className="w-3 h-3 mr-1"/>
+                                                Edit
+                                            </Button>
+
+                                            {editActionId === cert.id && (
+                                                <>
+                                                    <Badge className="h-7 px-2 text-xs bg-blue-500/20 text-blue-700">
+                                                        Score: {cert.mentor_score != null ? `${cert.mentor_score}/10` : '-'}
+                                                    </Badge>
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                        onClick={() => openVerifyDialog(cert)}
+                                                    >
+                                                        <CheckCircle className="w-3 h-3 mr-1"/>
+                                                        Accept
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        className="h-7 px-2 text-xs"
+                                                        onClick={() => openRejectDialog(cert)}
+                                                    >
+                                                        <XCircle className="w-3 h-3 mr-1"/>
+                                                        Reject
+                                                    </Button>
+                                                </>
+                                            )}
+
                                             <Dialog open={isVerifyOpen && selectedCertification?.id === cert.id} onOpenChange={(open) => {
                                                 setIsVerifyOpen(open);
                                             }}>
-                                                <DialogTrigger asChild>
-                                                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => openVerifyDialog(cert)}>
-                                                        {cert.verification_status !== 'pending' ? <Pencil className="w-4 h-4 mr-1"/> : <CheckCircle className="w-4 h-4 mr-1"/>}
-                                                        {cert.verification_status === 'pending' ? 'Verify' : 'Edit Verify'}
-                                                    </Button>
-                                                </DialogTrigger>
                                                 <DialogContent>
                                                     <DialogHeader>
                                                         <DialogTitle>{cert.verification_status === 'pending' ? 'Verify Certification' : 'Edit Verification'}</DialogTitle>
@@ -536,12 +568,6 @@ export default function MentorCertificationsPage() {
                                             <Dialog open={isRejectOpen && selectedCertification?.id === cert.id} onOpenChange={(open) => {
                                                 setIsRejectOpen(open);
                                             }}>
-                                                <DialogTrigger asChild>
-                                                    <Button size="sm" variant="destructive" onClick={() => openRejectDialog(cert)}>
-                                                        {cert.verification_status !== 'pending' ? <Pencil className="w-4 h-4 mr-1"/> : <XCircle className="w-4 h-4 mr-1"/>}
-                                                        {cert.verification_status === 'pending' ? 'Reject' : 'Edit Reject'}
-                                                    </Button>
-                                                </DialogTrigger>
                                                 <DialogContent>
                                                     <DialogHeader>
                                                         <DialogTitle>{cert.verification_status === 'pending' ? 'Reject Certification' : 'Edit Rejection'}</DialogTitle>

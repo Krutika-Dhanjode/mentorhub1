@@ -147,27 +147,27 @@ export default function AdminMeetingsPage() {
             <p className="text-sm text-muted-foreground">
               No meetings found for the mentors added by this Admin.
             </p>
-          </Card>) : (filteredMeetings.map((meeting) => (<Card key={meeting.id} className="p-4 border-border hover:shadow-md transition-shadow">
+          </Card>) : (filteredMeetings.map((meeting) => (<Card key={meeting.id} className="p-3 border-border hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between flex-wrap gap-4">
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-foreground">{meeting.title}</h3>
-                    <Badge className={getStatusColor(meeting.status)}>{meeting.status}</Badge>
+                    <h3 className="text-lg font-semibold text-foreground">{meeting.title}</h3>
+                    <Badge className={`${getStatusColor(meeting.status)} px-2 py-0.5 text-xs`}>{meeting.status}</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">Mentor: {meeting.mentorName}</p>
-                  <p className="text-sm text-muted-foreground">Batch: {meeting.batchName}</p>
-                  <p className="text-sm text-muted-foreground">{meeting.description}</p>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                  <p className="text-xs text-muted-foreground">Mentor: {meeting.mentorName}</p>
+                  <p className="text-xs text-muted-foreground">Batch: {meeting.batchName}</p>
+                  <p className="text-xs text-muted-foreground">{meeting.description}</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4"/>
+                      <Calendar className="h-3.5 w-3.5"/>
                       {meeting.scheduledAt ? new Date(meeting.scheduledAt).toLocaleDateString() : 'Date not set'}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4"/>
+                      <Clock className="h-3.5 w-3.5"/>
                       {meeting.scheduledAt ? new Date(meeting.scheduledAt).toLocaleTimeString() : 'Time not set'}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Users className="h-4 w-4"/>
+                      <Users className="h-3.5 w-3.5"/>
                       {meeting.studentCount} students
                     </span>
                   </div>

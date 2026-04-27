@@ -281,6 +281,16 @@ export default function MentorAnalyticsPage() {
         return mapped.sort((a, b) => b.avgScore - a.avgScore || a.fullName.localeCompare(b.fullName));
     }, [analyticsData.performance, analyticsData.students, selectedComparisonCategory]);
 
+    const comparisonExtremes = useMemo(() => {
+        if (studentComparisonData.length === 0) {
+            return { top: null, low: null };
+        }
+        return {
+            top: studentComparisonData[0],
+            low: studentComparisonData[studentComparisonData.length - 1],
+        };
+    }, [studentComparisonData]);
+
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground p-6">Loading analytics...</p>;
     }
@@ -416,6 +426,20 @@ export default function MentorAnalyticsPage() {
                         </Bar>
                     </BarChart>
                 </ChartContainer>
+                {comparisonExtremes.top && comparisonExtremes.low && (
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Top Performer ({selectedComparisonCategoryLabel})</p>
+                            <p className="text-sm font-semibold text-foreground">{comparisonExtremes.top.fullName}</p>
+                            <p className="text-xs text-muted-foreground">Score: {comparisonExtremes.top.avgScore}/10</p>
+                        </div>
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Low Performer ({selectedComparisonCategoryLabel})</p>
+                            <p className="text-sm font-semibold text-foreground">{comparisonExtremes.low.fullName}</p>
+                            <p className="text-xs text-muted-foreground">Score: {comparisonExtremes.low.avgScore}/10</p>
+                        </div>
+                    </div>
+                )}
             </Card>
 
             <Card className="border-border bg-card p-6">
@@ -481,20 +505,20 @@ export default function MentorAnalyticsPage() {
                 </div>
             </Card>
 
-            <Card className="border-border bg-card p-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Performance Breakdown</h2>
-                <div className="space-y-6">
+            <Card className="border-border bg-card p-4">
+                <h2 className="text-lg font-semibold text-foreground mb-3">Detailed Performance Breakdown</h2>
+                <div className="space-y-4">
                     {analyticsData.students.map((student) => (
-                        <div key={student.studentId} className="border border-border rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-medium text-foreground">{student.name}</h3>
+                        <div key={student.studentId} className="border border-border rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-xl font-medium text-foreground">{student.name}</h3>
                                 <Badge className="bg-primary/20 text-primary">Overall: {student.overallAvg}/10</Badge>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div className="flex flex-wrap gap-2">
                                 {student.categories.map((cat) => (
-                                    <div key={cat.category} className="text-center p-3 rounded-lg bg-secondary/20">
+                                    <div key={cat.category} className="w-[170px] text-center p-2 rounded-lg bg-secondary/20">
                                         <p className="text-sm font-medium text-muted-foreground capitalize">{cat.category}</p>
-                                        <p className="text-lg font-bold text-foreground">{cat.avgScore}/10</p>
+                                        <p className="text-base font-bold text-foreground">{cat.avgScore}/10</p>
                                         <p className="text-xs text-muted-foreground">{cat.count} entries</p>
                                     </div>
                                 ))}

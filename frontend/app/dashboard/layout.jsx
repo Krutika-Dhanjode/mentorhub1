@@ -56,8 +56,12 @@ export default function DashboardLayout({ children }) {
         }
     } else if (pathname.startsWith('/dashboard/hod')) {
         userRole = 'hod';
-        if (pathname.includes('/mentors')) {
+        if (pathname.includes('/students/')) {
+            title = 'Student Report';
+        } else if (pathname.includes('/mentors')) {
             title = 'Mentors';
+        } else if (pathname.includes('/progress')) {
+            title = 'Progress';
         } else if (pathname.includes('/meetings')) {
             title = 'Meetings';
         } else if (pathname.includes('/settings')) {

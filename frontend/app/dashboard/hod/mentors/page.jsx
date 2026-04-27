@@ -638,7 +638,7 @@ export default function AdminMentorsPage() {
                                {mentor.batches.map((batch) => (<div key={batch.id} className="rounded-lg border bg-background p-4">
                                    <p className="font-semibold text-foreground">{batch.name}</p>
                                    {batch.students.length === 0 ? (<p className="mt-2 text-sm text-muted-foreground">No students in this batch yet.</p>) : (<div className="mt-3 flex flex-wrap gap-2">
-                                       {batch.students.map((student) => (<Link key={student.id} href={`/dashboard/mentor/students/${student.id}`} className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
+                                       {batch.students.map((student) => (<Link key={student.id} href={`/dashboard/hod/students/${student.id}`} className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
                                            <span>{student.name}</span>
                                            <span className="text-muted-foreground">({student.prn})</span>
                                          </Link>))}

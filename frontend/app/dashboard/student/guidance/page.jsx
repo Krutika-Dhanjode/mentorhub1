@@ -256,7 +256,6 @@ export default function StudentGuidancePage() {
                     ? "border-primary bg-primary/10"
                     : "border-border hover:bg-muted/40"}`}>
                   <p className="font-medium text-foreground">{mentor.name}</p>
-                  <p className="text-sm text-muted-foreground">{mentor.email}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Batches: {mentor.batchNames.join(", ") || "Not assigned"}
                   </p>

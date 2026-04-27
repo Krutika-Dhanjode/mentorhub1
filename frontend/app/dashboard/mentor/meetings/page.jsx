@@ -466,13 +466,13 @@ export default function MentorMeetingsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Past Meetings</h2>
 
-        {pastMeetings.length === 0 ? (<Card className="p-4">
+        {pastMeetings.length === 0 ? (<Card className="p-3">
             <p className="text-muted-foreground">No past meetings yet.</p>
-          </Card>) : (pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-4">
-              <div className="space-y-1">
-                <p className="font-bold">{meeting.title}</p>
+          </Card>) : (pastMeetings.map((meeting) => (<Card key={meeting.id} className="p-3">
+              <div className="space-y-0.5">
+                <p className="font-bold text-base">{meeting.title}</p>
                 <p className="text-sm text-muted-foreground">{meeting.batch}</p>
-                <p>
+                <p className="text-sm">
                   {meeting.date} - {meeting.time}
                 </p>
                 <p className="text-sm text-muted-foreground">{meeting.description}</p>
