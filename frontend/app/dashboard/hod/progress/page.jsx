@@ -31,6 +31,14 @@ function formatDateForExport(value) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function normalizeProgressCategory(entry) {
+  const typeValue = entry.entry_type || entry.certification_type || 'achievement';
+  if (typeValue === 'marks') return 'cgpa';
+  if (typeValue === 'skill' || typeValue === 'certification') return 'certification';
+  if (['hackathon', 'sports', 'competition', 'achievement', 'cgpa'].includes(typeValue)) return typeValue;
+  return 'achievement';
+}
+
 export default function HODProgressPage() {
   const { user, loading } = useUser();
   const supabase = createClient();
@@ -115,23 +123,26 @@ export default function HODProgressPage() {
       }
 
       let assignments = [];
-      const assignmentResult = await supabase
+      let assignmentResult = await supabase
         .from('batch_students')
         .select('batch_id, student_id, start_date, end_date')
         .in('batch_id', batchIds);
 
       if (assignmentResult.error && assignmentResult.error.message?.toLowerCase().includes('column')) {
-        const fallbackAssignments = await supabase
+        assignmentResult = await supabase
+          .from('batch_students')
+          .select('batch_id, student_id, joining_date, ending_date')
+          .in('batch_id', batchIds);
+      }
+
+      if (assignmentResult.error && assignmentResult.error.message?.toLowerCase().includes('column')) {
+        assignmentResult = await supabase
           .from('batch_students')
           .select('batch_id, student_id')
           .in('batch_id', batchIds);
-        if (fallbackAssignments.error) {
-          toast.error('Unable to load batch assignments: ' + fallbackAssignments.error.message);
-          setDataLoading(false);
-          return;
-        }
-        assignments = fallbackAssignments.data || [];
-      } else if (assignmentResult.error) {
+      }
+
+      if (assignmentResult.error) {
         toast.error('Unable to load batch assignments: ' + assignmentResult.error.message);
         setDataLoading(false);
         return;
@@ -215,10 +226,22 @@ export default function HODProgressPage() {
 
       const progressCountByStudent = new Map();
       const latestReportScoreByStudent = new Map();
+      const categoryCountByStudent = new Map();
 
       (progressRows || []).forEach((entry) => {
         const currentCount = progressCountByStudent.get(entry.student_id) || 0;
         progressCountByStudent.set(entry.student_id, currentCount + 1);
+        const category = normalizeProgressCategory(entry);
+        const categoryCounts = categoryCountByStudent.get(entry.student_id) || {
+          certification_count: 0,
+          hackathon_count: 0,
+          sports_count: 0,
+          competition_count: 0,
+          achievement_count: 0,
+          cgpa_count: 0,
+        };
+        categoryCounts[`${category}_count`] = (categoryCounts[`${category}_count`] || 0) + 1;
+        categoryCountByStudent.set(entry.student_id, categoryCounts);
 
         if (entry.entry_type === 'report' && entry.score != null && !Number.isNaN(Number(entry.score))) {
           const current = latestReportScoreByStudent.get(entry.student_id);
@@ -251,6 +274,16 @@ export default function HODProgressPage() {
         ).length;
 
         const reportScore = latestReportScoreByStudent.get(assignment.student_id)?.score ?? 'N/A';
+        const categoryCounts = categoryCountByStudent.get(assignment.student_id) || {
+          certification_count: 0,
+          hackathon_count: 0,
+          sports_count: 0,
+          competition_count: 0,
+          achievement_count: 0,
+          cgpa_count: 0,
+        };
+        const joiningDateValue = assignment.start_date ?? assignment.joining_date ?? null;
+        const endingDateValue = assignment.end_date ?? assignment.ending_date ?? null;
 
         return {
           student_id: assignment.student_id,
@@ -265,8 +298,14 @@ export default function HODProgressPage() {
           progress_count: progressCountByStudent.get(assignment.student_id) || 0,
           report_score: reportScore,
           cgpa: student?.cgpa ?? 'N/A',
-          joining_date: formatDateForExport(assignment.start_date),
-          ending_date: formatDateForExport(assignment.end_date),
+          certification_count: categoryCounts.certification_count || 0,
+          hackathon_count: categoryCounts.hackathon_count || 0,
+          sports_count: categoryCounts.sports_count || 0,
+          competition_count: categoryCounts.competition_count || 0,
+          achievement_count: categoryCounts.achievement_count || 0,
+          cgpa_count: categoryCounts.cgpa_count || 0,
+          joining_date: formatDateForExport(joiningDateValue),
+          ending_date: formatDateForExport(endingDateValue),
         };
       });
 
@@ -336,14 +375,6 @@ export default function HODProgressPage() {
     [allProgressRows, scopedStudentIds],
   );
 
-  const normalizeCategory = (entry) => {
-    const typeValue = entry.entry_type || entry.certification_type || 'achievement';
-    if (typeValue === 'marks') return 'cgpa';
-    if (typeValue === 'skill' || typeValue === 'certification') return 'certification';
-    if (['hackathon', 'sports', 'competition', 'achievement', 'cgpa'].includes(typeValue)) return typeValue;
-    return 'achievement';
-  };
-
   const analytics = useMemo(() => {
     const studentInfoById = new Map(filteredRows.map((row) => [row.student_id, row]));
     const performance = {};
@@ -374,7 +405,7 @@ export default function HODProgressPage() {
 
     (scopedProgressRows || []).forEach((entry) => {
       if (!performance[entry.student_id]) return;
-      const category = normalizeCategory(entry);
+      const category = normalizeProgressCategory(entry);
       const scoreValue = entry.score != null ? Number(entry.score) : null;
       categoryStats[category].total++;
 
@@ -459,13 +490,16 @@ export default function HODProgressPage() {
   );
 
   const studentComparisonData = useMemo(() => {
+    const rowByStudentId = new Map(filteredRows.map((row) => [row.student_id, row]));
     const mapped = analytics.students.map((student) => {
+      const baseRow = rowByStudentId.get(student.studentId);
       if (selectedComparisonCategory === 'overall') {
         return {
           name: student.name.split(' ').slice(0, 2).join(' '),
           avgScore: student.overallAvg || 0,
           fullName: student.name,
           entries: student.totalEntries || 0,
+          prn: baseRow?.prn || 'N/A',
         };
       }
 
@@ -481,24 +515,28 @@ export default function HODProgressPage() {
         avgScore: avgCategoryScore,
         fullName: student.name,
         entries: categoryScores.length,
+        prn: baseRow?.prn || 'N/A',
       };
     });
 
     return mapped.sort((a, b) => b.avgScore - a.avgScore || a.fullName.localeCompare(b.fullName));
-  }, [analytics.performance, analytics.students, selectedComparisonCategory]);
+  }, [analytics.performance, analytics.students, filteredRows, selectedComparisonCategory]);
 
   const comparisonExtremes = useMemo(() => {
-    if (studentComparisonData.length === 0) return { top: null, low: null };
+    if (studentComparisonData.length === 0) return { top: null, low: null, tiedLow: [] };
+    const lowestScore = studentComparisonData[studentComparisonData.length - 1].avgScore;
+    const tiedLow = studentComparisonData.filter((student) => student.avgScore === lowestScore);
     return {
       top: studentComparisonData[0],
       low: studentComparisonData[studentComparisonData.length - 1],
+      tiedLow,
     };
   }, [studentComparisonData]);
 
   const summaryStats = useMemo(() => {
     const totalEntries = scopedProgressRows.length;
     const verifiedEntries = scopedProgressRows.filter(
-      (entry) => normalizeCategory(entry) === 'cgpa' || entry.verification_status === 'verified',
+      (entry) => normalizeProgressCategory(entry) === 'cgpa' || entry.verification_status === 'verified',
     ).length;
     const activeStudents = analytics.students.filter((student) => student.totalEntries > 0).length;
     return { totalEntries, verifiedEntries, activeStudents };
@@ -538,6 +576,12 @@ export default function HODProgressPage() {
         { key: 'progress_count', label: 'No of Progress Added' },
         { key: 'report_score', label: 'Report Score' },
         { key: 'cgpa', label: 'CGPA' },
+        { key: 'certification_count', label: 'Certification Count' },
+        { key: 'hackathon_count', label: 'Hackathon Count' },
+        { key: 'sports_count', label: 'Sports Count' },
+        { key: 'competition_count', label: 'Competition Count' },
+        { key: 'achievement_count', label: 'Achievement Count' },
+        { key: 'cgpa_count', label: 'CGPA Entry Count' },
         { key: 'joining_date', label: 'Joining Date in Batch' },
         { key: 'ending_date', label: 'Ending Date in Batch' },
       ];
@@ -566,7 +610,7 @@ export default function HODProgressPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden max-w-full">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Progress Report</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -574,12 +618,12 @@ export default function HODProgressPage() {
         </p>
       </div>
 
-      <Card className="p-4 border-border space-y-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
+      <Card className="p-3 border-border space-y-3 max-w-full overflow-hidden">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[280px_minmax(0,1fr)]">
           <div className="space-y-2">
             <Label>Mentor</Label>
             <Select value={selectedMentorId} onValueChange={setSelectedMentorId}>
-              <SelectTrigger className="bg-card border-border">
+              <SelectTrigger className="h-9 bg-card border-border">
                 <SelectValue placeholder="Select mentor" />
               </SelectTrigger>
               <SelectContent>
@@ -593,27 +637,27 @@ export default function HODProgressPage() {
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Batches (checkbox filter)</Label>
               <Button variant="outline" size="sm" onClick={clearBatchSelection}>
                 Select All
               </Button>
             </div>
-            <div className="max-h-32 overflow-auto rounded-md border border-border p-2">
+            <div className="max-h-24 overflow-y-auto overflow-x-hidden rounded-md border border-border p-1.5">
               {visibleBatches.length === 0 ? (
                 <p className="text-xs text-muted-foreground px-1 py-1">No batches available for this mentor.</p>
               ) : (
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-1.5">
                   {visibleBatches.map((batch) => {
                     const checked = selectedBatchIds.includes(batch.id);
                     return (
-                      <label key={batch.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/40">
+                      <label key={batch.id} className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 hover:bg-muted/40">
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(value) => toggleBatchSelection(batch.id, Boolean(value))}
                         />
-                        <span className="text-sm">{batch.name}</span>
+                        <span className="text-sm truncate">{batch.name}</span>
                       </label>
                     );
                   })}
@@ -628,9 +672,9 @@ export default function HODProgressPage() {
 
         <p className="text-xs text-muted-foreground">These filters apply to all analytics and report sections below.</p>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <Badge className="bg-primary/20 text-primary">Rows: {filteredRows.length}</Badge>
-          <Button className="gap-2" variant="outline" onClick={handleDownloadFilteredCsv} disabled={exporting}>
+          <Button className="h-9 gap-2" variant="outline" onClick={handleDownloadFilteredCsv} disabled={exporting}>
             <Download className="h-4 w-4" />
             {exporting ? 'Preparing Report...' : 'Download Filtered Report'}
           </Button>
@@ -675,7 +719,7 @@ export default function HODProgressPage() {
         ))}
       </div>
 
-      <Card className="border-border bg-card p-4">
+      <Card className="border-border bg-card p-4 max-w-full overflow-hidden">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <h2 className="text-lg font-semibold text-foreground">{selectedComparisonCategoryLabel} Student Comparison</h2>
           <div className="flex items-center gap-2">
@@ -742,47 +786,74 @@ export default function HODProgressPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
                 Low Performer ({selectedComparisonCategoryLabel})
               </p>
-              <p className="text-sm font-semibold text-foreground">{comparisonExtremes.low.fullName}</p>
-              <p className="text-xs text-muted-foreground">Score: {comparisonExtremes.low.avgScore}/10</p>
+              {comparisonExtremes.tiedLow.length > 1 ? (
+                <div className="space-y-1">
+                  {comparisonExtremes.tiedLow.map((student) => (
+                    <p key={`${student.fullName}-${student.prn}`} className="text-sm font-semibold text-foreground">
+                      {student.fullName} (PRN: {student.prn})
+                    </p>
+                  ))}
+                  <p className="text-xs text-muted-foreground">Score: {comparisonExtremes.low.avgScore}/10</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-foreground">
+                    {comparisonExtremes.low.fullName} (PRN: {comparisonExtremes.low.prn})
+                  </p>
+                  <p className="text-xs text-muted-foreground">Score: {comparisonExtremes.low.avgScore}/10</p>
+                </>
+              )}
             </div>
           </div>
         )}
       </Card>
 
-      <Card className="p-4 border-border">
+      <Card className="p-4 border-border max-w-full overflow-hidden">
         {filteredRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No report data found for the selected filters.</p>
         ) : (
-          <Table>
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Mentor</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>PRN</TableHead>
-                <TableHead>Batch</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Meetings Attended</TableHead>
-                <TableHead>Progress Count</TableHead>
-                <TableHead>Report Score</TableHead>
-                <TableHead>CGPA</TableHead>
-                <TableHead>Joining Date</TableHead>
-                <TableHead>Ending Date</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Mentor</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Name</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">PRN</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Batch</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Email</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Meetings Attended</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Progress Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Report Score</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">CGPA</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Certification Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Hackathon Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Sports Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Competition Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Achievement Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">CGPA Entry Count</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Joining Date</TableHead>
+                <TableHead className="whitespace-normal break-words text-xs">Ending Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRows.map((row, index) => (
                 <TableRow key={`${row.batch_id}-${row.email}-${index}`} className="border-border hover:bg-secondary/30">
-                  <TableCell>{row.mentor_name}</TableCell>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell>{row.prn}</TableCell>
-                  <TableCell>{row.batch_name}</TableCell>
-                  <TableCell className="text-muted-foreground">{row.email}</TableCell>
-                  <TableCell>{row.meetings_attended}</TableCell>
-                  <TableCell>{row.progress_count}</TableCell>
-                  <TableCell>{row.report_score}</TableCell>
-                  <TableCell>{row.cgpa}</TableCell>
-                  <TableCell>{row.joining_date}</TableCell>
-                  <TableCell>{row.ending_date}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.mentor_name}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.name}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.prn}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.batch_name}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs text-muted-foreground">{row.email}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.meetings_attended}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.progress_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.report_score}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.cgpa}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.certification_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.hackathon_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.sports_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.competition_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.achievement_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.cgpa_count}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.joining_date}</TableCell>
+                  <TableCell className="whitespace-normal break-all text-xs">{row.ending_date}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

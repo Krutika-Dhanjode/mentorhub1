@@ -364,12 +364,29 @@ export default function AdminMentorsPage() {
                 continue;
             }
             const batchIds = (batchData || []).map((batch) => batch.id);
-            const { data: assignmentData } = batchIds.length > 0
+            let assignmentResult = batchIds.length > 0
                 ? await supabase
                     .from('batch_students')
                     .select('batch_id, student_id, student_name, start_date, end_date')
                     .in('batch_id', batchIds)
                 : { data: [] };
+            if (assignmentResult.error && assignmentResult.error.message?.toLowerCase().includes('column')) {
+                assignmentResult = await supabase
+                    .from('batch_students')
+                    .select('batch_id, student_id, student_name, joining_date, ending_date')
+                    .in('batch_id', batchIds);
+            }
+            if (assignmentResult.error && assignmentResult.error.message?.toLowerCase().includes('column')) {
+                assignmentResult = await supabase
+                    .from('batch_students')
+                    .select('batch_id, student_id, student_name')
+                    .in('batch_id', batchIds);
+            }
+            if (assignmentResult.error) {
+                toast.error(`Unable to load batch assignments for ${mentor.name}: ${assignmentResult.error.message}`);
+                continue;
+            }
+            const assignmentData = assignmentResult.data || [];
             const studentIds = Array.from(new Set((assignmentData || []).map((row) => row.student_id).filter(Boolean)));
             const { data: studentUsers } = studentIds.length > 0
                 ? await supabase
@@ -436,8 +453,8 @@ export default function AdminMentorsPage() {
                     progress_count: progressCountByStudent.get(assignment.student_id) || 0,
                     report_score: latestReportScoreByStudent.get(assignment.student_id) || 'N/A',
                     cgpa: s?.cgpa ?? 'N/A',
-                    joining_date: formatDate(assignment.start_date),
-                    ending_date: formatDate(assignment.endDate || assignment.end_date),
+                    joining_date: formatDate(assignment.start_date ?? assignment.joining_date),
+                    ending_date: formatDate(assignment.endDate || assignment.end_date || assignment.ending_date),
                 };
                 return columns.map((col) => csvEscape(rowData[col.key])).join(',');
             });

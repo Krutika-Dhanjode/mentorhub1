@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Layers3, Users, UserRound, Mail } from 'lucide-react';
+import { Layers3, Users, UserRound } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useUser } from '@/hooks/use-user';
@@ -74,7 +74,6 @@ export default function StudentBatchesPage() {
                 department: batch.department,
                 year: batch.year,
                 mentorName: mentorsById.get(batch.mentor_id)?.name || 'Unknown Mentor',
-                mentorEmail: mentorsById.get(batch.mentor_id)?.email || '',
                 mentorDepartment: mentorsById.get(batch.mentor_id)?.department || 'Not specified',
                 classmates: (peerAssignments || [])
                     .filter((entry) => entry.batch_id === batch.id)
@@ -163,10 +162,6 @@ export default function StudentBatchesPage() {
                   <div className="rounded-xl bg-secondary/40 p-4">
                     <p className="text-sm font-medium text-foreground">Mentor</p>
                     <p className="mt-1 text-base font-semibold text-foreground">{assignment.mentorName}</p>
-                    <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4"/>
-                      {assignment.mentorEmail || 'Email not available'}
-                    </p>
                   </div>
                 </div>
 

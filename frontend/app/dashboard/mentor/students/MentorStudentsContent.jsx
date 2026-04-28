@@ -752,10 +752,23 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                 toast.success('No batches found for the selected report scope.');
                 return;
             }
-            const { data: assignments, error: assignmentError } = await supabase
+            let assignmentResult = await supabase
                 .from('batch_students')
                 .select('batch_id, student_id, start_date, end_date')
                 .in('batch_id', batchIds);
+            if (assignmentResult.error && assignmentResult.error.message?.toLowerCase().includes('column')) {
+                assignmentResult = await supabase
+                    .from('batch_students')
+                    .select('batch_id, student_id, joining_date, ending_date')
+                    .in('batch_id', batchIds);
+            }
+            if (assignmentResult.error && assignmentResult.error.message?.toLowerCase().includes('column')) {
+                assignmentResult = await supabase
+                    .from('batch_students')
+                    .select('batch_id, student_id')
+                    .in('batch_id', batchIds);
+            }
+            const { data: assignments, error: assignmentError } = assignmentResult;
             if (assignmentError) {
                 toast.error('Unable to fetch batch assignments: ' + assignmentError.message);
                 return;
@@ -893,8 +906,8 @@ function MentorStudentsPageContent({ initialSearch = '' }) {
                     progress_count: progressCountByStudent.get(assignment.student_id) || 0,
                     report_score: reportScore,
                     cgpa: s?.cgpa ?? 'N/A',
-                    joining_date: formatDateForExport(assignment.start_date),
-                    ending_date: formatDateForExport(assignment.end_date),
+                    joining_date: formatDateForExport(assignment.start_date ?? assignment.joining_date),
+                    ending_date: formatDateForExport(assignment.end_date ?? assignment.ending_date),
                 };
                 return columns.map((column) => csvEscape(rowData[column.key])).join(',');
             });

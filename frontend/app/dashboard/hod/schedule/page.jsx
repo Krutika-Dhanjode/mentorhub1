@@ -164,6 +164,19 @@ export default function HodSchedulePage() {
     });
   };
 
+  const toggleAllMentorsSelection = () => {
+    setNewMeeting((prev) => {
+      const allMentorIds = mentors.map((mentor) => mentor.id).filter(Boolean);
+      const allSelected =
+        allMentorIds.length > 0 &&
+        allMentorIds.every((id) => prev.mentorIds.includes(id));
+      return {
+        ...prev,
+        mentorIds: allSelected ? [] : allMentorIds,
+      };
+    });
+  };
+
   const handleScheduleMeeting = async () => {
     if (
       !newMeeting.title ||
@@ -411,13 +424,6 @@ export default function HodSchedulePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            Last Sent Time:{" "}
-            {lastSentTime
-              ? new Date(lastSentTime).toLocaleString()
-              : "Not sent yet"}
-          </p>
-
           <Dialog
             open={isDialogOpen}
             onOpenChange={(open) => {
@@ -472,23 +478,43 @@ export default function HodSchedulePage() {
                         No mentors available
                       </p>
                     ) : (
-                      mentors.map((mentor) => (
-                        <label
-                          key={mentor.id}
-                          className="flex items-center gap-3 px-3 py-2 hover:bg-secondary/50 cursor-pointer border-b border-input last:border-b-0 transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={newMeeting.mentorIds.includes(mentor.id)}
-                            onChange={() => toggleMentorSelection(mentor.id)}
-                            disabled={editingMeetingId && newMeeting.mentorIds.length === 1 && !newMeeting.mentorIds.includes(mentor.id)}
-                            className="h-4 w-4 rounded border-input"
-                          />
-                          <span className="text-sm text-foreground">
-                            {mentor.name}
-                          </span>
-                        </label>
-                      ))
+                      <>
+                        {!editingMeetingId && (
+                          <label className="flex items-center gap-3 px-3 py-2 hover:bg-secondary/50 cursor-pointer border-b border-input transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={
+                                mentors.length > 0 &&
+                                mentors.every((mentor) =>
+                                  newMeeting.mentorIds.includes(mentor.id),
+                                )
+                              }
+                              onChange={toggleAllMentorsSelection}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <span className="text-sm font-medium text-foreground">
+                              All Mentors
+                            </span>
+                          </label>
+                        )}
+                        {mentors.map((mentor) => (
+                          <label
+                            key={mentor.id}
+                            className="flex items-center gap-3 px-3 py-2 hover:bg-secondary/50 cursor-pointer border-b border-input last:border-b-0 transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={newMeeting.mentorIds.includes(mentor.id)}
+                              onChange={() => toggleMentorSelection(mentor.id)}
+                              disabled={editingMeetingId && newMeeting.mentorIds.length === 1 && !newMeeting.mentorIds.includes(mentor.id)}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <span className="text-sm text-foreground">
+                              {mentor.name}
+                            </span>
+                          </label>
+                        ))}
+                      </>
                     )}
                   </div>
                   {mentors.length === 0 && (
