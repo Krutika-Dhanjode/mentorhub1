@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Award, TrendingUp, Users, Target, Star, Trophy, AlertTriangle } from 'lucide-react';
+import { Award, TrendingUp, Users, Target, Star, Trophy, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -21,6 +21,7 @@ export default function MentorAnalyticsPage() {
         performance: {},
     });
     const [dataLoading, setDataLoading] = useState(true);
+    const [expandedStudents, setExpandedStudents] = useState({});
 
     const fetchAnalyticsData = async () => {
         if (!user) return;
@@ -141,14 +142,24 @@ export default function MentorAnalyticsPage() {
                 categoryStats[category].verified++;
                 if (scoreValue != null) {
                     categoryStats[category].totalScore += scoreValue;
-                    performance[studentId].categories.cgpa.push(scoreValue);
+                    performance[studentId].categories.cgpa.push({
+                        score: scoreValue,
+                        title: entry.title || entry.certification_name || 'CGPA Entry',
+                        createdAt: entry.created_at,
+                        verificationStatus: 'verified',
+                    });
                     // Do NOT add CGPA to the overall extracurricular performance metric
                 }
             } else if (entry.verification_status === 'verified') {
                 categoryStats[category].verified++;
                 if (scoreValue != null) {
                     categoryStats[category].totalScore += scoreValue;
-                    performance[studentId].categories[category].push(scoreValue);
+                    performance[studentId].categories[category].push({
+                        score: scoreValue,
+                        title: entry.title || entry.certification_name || 'Untitled Entry',
+                        createdAt: entry.created_at,
+                        verificationStatus: entry.verification_status,
+                    });
                     performance[studentId].overall.totalScore += scoreValue;
                     performance[studentId].overall.count++;
                 }
@@ -164,10 +175,11 @@ export default function MentorAnalyticsPage() {
 
         // Calculate student averages and rankings
         const studentRankings = Object.entries(performance).map(([studentId, data]) => {
-            const categories = Object.entries(data.categories).map(([category, scores]) => ({
+            const categories = Object.entries(data.categories).map(([category, entries]) => ({
                 category,
-                avgScore: scores.length > 0 ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : 0,
-                count: scores.length,
+                avgScore: entries.length > 0 ? Number((entries.reduce((sum, item) => sum + item.score, 0) / entries.length).toFixed(1)) : 0,
+                count: entries.length,
+                entries,
             })).filter(cat => cat.count > 0);
 
             const overallAvg = data.overall.count > 0 ? Number((data.overall.totalScore / data.overall.count).toFixed(1)) : 0;
@@ -267,7 +279,7 @@ export default function MentorAnalyticsPage() {
 
             const categoryScores = analyticsData.performance?.[student.studentId]?.categories?.[selectedComparisonCategory] || [];
             const avgCategoryScore = categoryScores.length > 0
-                ? Number((categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length).toFixed(1))
+                ? Number((categoryScores.reduce((sum, entry) => sum + entry.score, 0) / categoryScores.length).toFixed(1))
                 : 0;
 
             return {
@@ -290,6 +302,13 @@ export default function MentorAnalyticsPage() {
             low: studentComparisonData[studentComparisonData.length - 1],
         };
     }, [studentComparisonData]);
+
+    const toggleStudentDetails = (studentId) => {
+        setExpandedStudents(prev => ({
+            ...prev,
+            [studentId]: !prev[studentId],
+        }));
+    };
 
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground p-6">Loading analytics...</p>;
@@ -512,14 +531,40 @@ export default function MentorAnalyticsPage() {
                         <div key={student.studentId} className="border border-border rounded-lg p-3">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-xl font-medium text-foreground">{student.name}</h3>
-                                <Badge className="bg-primary/20 text-primary">Overall: {student.overallAvg}/10</Badge>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStudentDetails(student.studentId)}
+                                        className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-primary hover:bg-secondary/30"
+                                    >
+                                        <span>Details</span>
+                                        {expandedStudents[student.studentId] ? (
+                                            <ChevronDown className="h-3.5 w-3.5" />
+                                        ) : (
+                                            <ChevronRight className="h-3.5 w-3.5" />
+                                        )}
+                                    </button>
+                                    <Badge className="bg-primary/20 text-primary">Overall: {student.overallAvg}/10</Badge>
+                                </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {student.categories.map((cat) => (
-                                    <div key={cat.category} className="w-[170px] text-center p-2 rounded-lg bg-secondary/20">
-                                        <p className="text-sm font-medium text-muted-foreground capitalize">{cat.category}</p>
-                                        <p className="text-base font-bold text-foreground">{cat.avgScore}/10</p>
-                                        <p className="text-xs text-muted-foreground">{cat.count} entries</p>
+                                    <div key={cat.category} className="w-[170px]">
+                                        <div className="w-full p-2 rounded-lg bg-secondary/20">
+                                            <p className="text-sm font-medium text-muted-foreground capitalize text-center">{cat.category}</p>
+                                            <p className="text-base font-bold text-foreground text-center">{cat.avgScore}/10</p>
+                                            <p className="text-xs text-muted-foreground text-center">{cat.count} entries</p>
+                                        </div>
+                                        {expandedStudents[student.studentId] && (
+                                            <div className="mt-2 rounded-lg border border-border bg-card p-2 space-y-2">
+                                                {cat.entries.map((entry, index) => (
+                                                    <div key={`${cat.category}-entry-${index}`} className="rounded border border-border/70 p-2 text-left">
+                                                        <p className="text-xs font-medium text-foreground truncate" title={entry.title}>{entry.title}</p>
+                                                        <p className="text-xs text-muted-foreground">Score: {entry.score}/10</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
