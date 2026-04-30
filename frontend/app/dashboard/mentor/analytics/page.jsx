@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+<<<<<<< HEAD
 import { Award, TrendingUp, Users, Target, Star, Trophy, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,22 +9,43 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineCh
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
+=======
+import { Award, TrendingUp, Users, Target, Star, Trophy, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/lib/supabase/client';
+import { useSearchParams } from 'next/navigation';
+>>>>>>> MMH
 
 export default function MentorAnalyticsPage() {
     const { user, loading } = useUser();
     const supabase = createClient();
     const [batches, setBatches] = useState([]);
     const [selectedBatchId, setSelectedBatchId] = useState('all');
+<<<<<<< HEAD
     const [selectedComparisonCategory, setSelectedComparisonCategory] = useState('overall');
+=======
+    const [pendingBatchId, setPendingBatchId] = useState('all');
+>>>>>>> MMH
     const [analyticsData, setAnalyticsData] = useState({
         certifications: [],
         students: [],
         performance: {},
     });
     const [dataLoading, setDataLoading] = useState(true);
+<<<<<<< HEAD
     const [expandedStudents, setExpandedStudents] = useState({});
 
     const fetchAnalyticsData = async () => {
+=======
+
+    const fetchAnalyticsData = async (batchFilter = selectedBatchId) => {
+>>>>>>> MMH
         if (!user) return;
         setDataLoading(true);
 
@@ -42,8 +64,13 @@ export default function MentorAnalyticsPage() {
         setBatches(batchData || []);
         
         let batchIds = (batchData || []).map(b => b.id);
+<<<<<<< HEAD
         if (selectedBatchId !== 'all') {
             batchIds = batchIds.filter(id => id === selectedBatchId);
+=======
+        if (batchFilter !== 'all') {
+            batchIds = batchIds.filter(id => id === batchFilter);
+>>>>>>> MMH
         }
 
         if (batchIds.length === 0) {
@@ -142,24 +169,32 @@ export default function MentorAnalyticsPage() {
                 categoryStats[category].verified++;
                 if (scoreValue != null) {
                     categoryStats[category].totalScore += scoreValue;
+<<<<<<< HEAD
                     performance[studentId].categories.cgpa.push({
                         score: scoreValue,
                         title: entry.title || entry.certification_name || 'CGPA Entry',
                         createdAt: entry.created_at,
                         verificationStatus: 'verified',
                     });
+=======
+                    performance[studentId].categories.cgpa.push(scoreValue);
+>>>>>>> MMH
                     // Do NOT add CGPA to the overall extracurricular performance metric
                 }
             } else if (entry.verification_status === 'verified') {
                 categoryStats[category].verified++;
                 if (scoreValue != null) {
                     categoryStats[category].totalScore += scoreValue;
+<<<<<<< HEAD
                     performance[studentId].categories[category].push({
                         score: scoreValue,
                         title: entry.title || entry.certification_name || 'Untitled Entry',
                         createdAt: entry.created_at,
                         verificationStatus: entry.verification_status,
                     });
+=======
+                    performance[studentId].categories[category].push(scoreValue);
+>>>>>>> MMH
                     performance[studentId].overall.totalScore += scoreValue;
                     performance[studentId].overall.count++;
                 }
@@ -175,11 +210,18 @@ export default function MentorAnalyticsPage() {
 
         // Calculate student averages and rankings
         const studentRankings = Object.entries(performance).map(([studentId, data]) => {
+<<<<<<< HEAD
             const categories = Object.entries(data.categories).map(([category, entries]) => ({
                 category,
                 avgScore: entries.length > 0 ? Number((entries.reduce((sum, item) => sum + item.score, 0) / entries.length).toFixed(1)) : 0,
                 count: entries.length,
                 entries,
+=======
+            const categories = Object.entries(data.categories).map(([category, scores]) => ({
+                category,
+                avgScore: scores.length > 0 ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : 0,
+                count: scores.length,
+>>>>>>> MMH
             })).filter(cat => cat.count > 0);
 
             const overallAvg = data.overall.count > 0 ? Number((data.overall.totalScore / data.overall.count).toFixed(1)) : 0;
@@ -203,14 +245,28 @@ export default function MentorAnalyticsPage() {
         setDataLoading(false);
     };
 
+<<<<<<< HEAD
     useEffect(() => {
         if (!loading && user) {
             fetchAnalyticsData();
+=======
+    const applyFilters = () => {
+        setSelectedBatchId(pendingBatchId);
+    };
+
+    const searchParams = useSearchParams();
+    const globalSearch = searchParams.get('q')?.trim().toLowerCase() || '';
+
+    useEffect(() => {
+        if (!loading && user) {
+            fetchAnalyticsData(selectedBatchId);
+>>>>>>> MMH
         } else if (!loading && !user) {
             setDataLoading(false);
         }
     }, [loading, user, selectedBatchId]);
 
+<<<<<<< HEAD
     const overallBatchScore = useMemo(() => {
         if (analyticsData.students.length === 0) return 0;
         const activeStudents = analyticsData.students.filter(s => s.totalEntries > 0);
@@ -309,6 +365,92 @@ export default function MentorAnalyticsPage() {
             [studentId]: !prev[studentId],
         }));
     };
+=======
+    const filteredStudents = useMemo(() => {
+        if (!globalSearch) {
+            return analyticsData.students;
+        }
+        return analyticsData.students.filter((student) => student.name.toLowerCase().includes(globalSearch));
+    }, [analyticsData.students, globalSearch]);
+
+    const overallBatchScore = useMemo(() => {
+        if (filteredStudents.length === 0) return 0;
+        const activeStudents = filteredStudents.filter(s => s.totalEntries > 0);
+        if (activeStudents.length === 0) return 0;
+        const total = activeStudents.reduce((sum, s) => sum + s.overallAvg, 0);
+        return Number((total / activeStudents.length).toFixed(1));
+    }, [filteredStudents]);
+
+    const topPerformers = useMemo(() => {
+        return filteredStudents
+            .filter(s => s.overallAvg > 0)
+            .sort((a, b) => b.overallAvg - a.overallAvg)
+            .slice(0, 5);
+    }, [filteredStudents]);
+
+    const strugglingStudents = useMemo(() => {
+        return filteredStudents
+            .filter(student => student.totalEntries === 0 || student.overallAvg < 7)
+            .sort((a, b) => a.overallAvg - b.overallAvg)
+            .slice(0, 5);
+    }, [filteredStudents]);
+
+    const categoryChartData = useMemo(() => {
+        const totals = {
+            certification: { total: 0, verified: 0, totalScore: 0 },
+            hackathon: { total: 0, verified: 0, totalScore: 0 },
+            sports: { total: 0, verified: 0, totalScore: 0 },
+            competition: { total: 0, verified: 0, totalScore: 0 },
+            cgpa: { total: 0, verified: 0, totalScore: 0 },
+            achievement: { total: 0, verified: 0, totalScore: 0 },
+        };
+
+        filteredStudents.forEach((student) => {
+            student.categories.forEach((categoryEntry) => {
+                totals[categoryEntry.category].verified += categoryEntry.count;
+                totals[categoryEntry.category].total += categoryEntry.count;
+                totals[categoryEntry.category].totalScore += categoryEntry.avgScore * categoryEntry.count;
+            });
+        });
+
+        return Object.entries(totals).map(([category, stats]) => ({
+            category: category.charAt(0).toUpperCase() + category.slice(1),
+            total: stats.total,
+            verified: stats.verified,
+            avgScore: stats.verified > 0 ? Number((stats.totalScore / stats.verified).toFixed(1)) : 0,
+        }));
+    }, [filteredStudents]);
+
+    const studentComparisonData = useMemo(() => {
+        return filteredStudents
+            .slice()
+            .sort((a, b) => b.overallAvg - a.overallAvg)
+            .map(s => ({
+                name: s.name.split(' ').slice(0, 2).join(' '),
+                avgScore: s.overallAvg || 0,
+                fullName: s.name,
+                entries: s.totalEntries || 0
+            }));
+    }, [filteredStudents]);
+
+    const studentDetailedChartData = useMemo(() => {
+        const categoryOrder = ['certification', 'hackathon', 'sports', 'competition', 'cgpa', 'achievement'];
+        return filteredStudents.map(student => ({
+            studentId: student.studentId,
+            name: student.name,
+            overallAvg: student.overallAvg,
+            totalEntries: student.totalEntries,
+            chartData: categoryOrder.map(category => {
+                const data = student.categories.find(c => c.category === category);
+                return {
+                    category: category.charAt(0).toUpperCase() + category.slice(1),
+                    avgScore: data?.avgScore || 0,
+                    count: data?.count || 0,
+                };
+            }),
+        }));
+    }, [analyticsData.students]);
+>>>>>>> MMH
 
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground p-6">Loading analytics...</p>;
@@ -332,6 +474,7 @@ export default function MentorAnalyticsPage() {
                             <span className="text-2xl font-bold">{overallBatchScore}/10</span>
                         </div>
                         {batches.length > 0 && (
+<<<<<<< HEAD
                             <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
                                 <SelectTrigger className="w-48 bg-card border-border">
                                     <SelectValue placeholder="All Batches" />
@@ -344,6 +487,25 @@ export default function MentorAnalyticsPage() {
                                 </SelectContent>
                             </Select>
                         )}
+=======
+                    <>
+                        <Select value={pendingBatchId} onValueChange={setPendingBatchId}>
+                            <SelectTrigger className="w-48 bg-card border-border">
+                                <SelectValue placeholder="All Students" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Students</SelectItem>
+                                {batches.map(b => (
+                                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button size="sm" className="border border-border bg-card hover:bg-secondary" onClick={applyFilters} disabled={pendingBatchId === selectedBatchId}>
+                            Apply Filter
+                        </Button>
+                    </>
+                )}
+>>>>>>> MMH
                     </div>
                 </div>
                 <Card className="p-12 border-border bg-card text-center">
@@ -374,6 +536,7 @@ export default function MentorAnalyticsPage() {
                         <span className="text-2xl font-bold">{overallBatchScore}/10</span>
                     </div>
                     {batches.length > 0 && (
+<<<<<<< HEAD
                         <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
                             <SelectTrigger className="w-48 bg-card border-border">
                                 <SelectValue placeholder="All Batches" />
@@ -385,6 +548,24 @@ export default function MentorAnalyticsPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+=======
+                        <>
+                            <Select value={pendingBatchId} onValueChange={setPendingBatchId}>
+                                <SelectTrigger className="w-48 bg-card border-border">
+                                    <SelectValue placeholder="All Students" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Students</SelectItem>
+                                    {batches.map(b => (
+                                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button size="sm" className="border border-border bg-card hover:bg-secondary" onClick={applyFilters} disabled={pendingBatchId === selectedBatchId}>
+                                Apply Filter
+                            </Button>
+                        </>
+>>>>>>> MMH
                     )}
                 </div>
             </div>
@@ -413,6 +594,7 @@ export default function MentorAnalyticsPage() {
             </div>
 
             <Card className="border-border bg-card p-6 mb-6">
+<<<<<<< HEAD
                 <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
                     <h2 className="text-xl font-semibold text-foreground">{selectedComparisonCategoryLabel} Student Comparison</h2>
                     <div className="flex items-center gap-2">
@@ -431,11 +613,17 @@ export default function MentorAnalyticsPage() {
                 </div>
                 <ChartContainer className="h-96 w-full" config={{
                     avgScore: { label: `${selectedComparisonCategoryLabel} Score`, color: 'hsl(var(--primary))' },
+=======
+                <h2 className="text-xl font-semibold text-foreground mb-4">Student Comparison</h2>
+                <ChartContainer className="h-96 w-full" config={{
+                    avgScore: { label: 'Overall Score', color: 'hsl(var(--primary))' },
+>>>>>>> MMH
                 }}>
                     <BarChart data={studentComparisonData} margin={{ left: 12, right: 12, top: 8, bottom: 40 }} barCategoryGap="2%">
                         <CartesianGrid strokeDasharray="3 3" vertical={false}/>
                         <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-35} textAnchor="end" height={60} style={{ fontSize: '11px' }}/>
                         <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
+<<<<<<< HEAD
                         <ChartTooltip cursor={{ fill: 'var(--accent)' }} content={<ChartTooltipContent labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label} formatter={(value) => [`${value}/10`, `${selectedComparisonCategoryLabel} Avg Score`]} />}/>
                         <Bar dataKey="avgScore" radius={[4, 4, 0, 0]} animationDuration={700} barSize={25}>
                             {studentComparisonData.map((entry, index) => (
@@ -459,6 +647,68 @@ export default function MentorAnalyticsPage() {
                         </div>
                     </div>
                 )}
+=======
+                        <ChartTooltip cursor={{ fill: 'var(--accent)' }} content={<ChartTooltipContent labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label} formatter={(value) => [`${value}/10`, 'Average Score']} />}/>
+                        <Bar dataKey="avgScore" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} animationDuration={700} barSize={25} />
+                    </BarChart>
+                </ChartContainer>
+            </Card>
+
+            <Card className="border-border bg-card p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 className="text-xl font-semibold text-foreground">Category Performance by Student</h2>
+                        <p className="text-sm text-muted-foreground">Each student is shown with six category bars; scroll to compare across students.</p>
+                    </div>
+                </div>
+                <div className="overflow-x-auto pb-2 w-full rounded-3xl border border-border bg-surface/50">
+                    <div className="flex gap-4 min-w-max flex-nowrap p-4">
+                        {studentDetailedChartData.map((student) => (
+                            <div key={student.studentId} className="min-w-[320px] shrink-0 rounded-3xl border border-border bg-background p-4 shadow-sm">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-foreground truncate">{student.name}</h3>
+                                        <p className="text-xs text-muted-foreground">{student.totalEntries} entries</p>
+                                    </div>
+                                    <Badge className="bg-primary/20 text-primary text-xs">
+                                        {student.overallAvg}/10
+                                    </Badge>
+                                </div>
+                                <ChartContainer className="h-56 w-full" config={{
+                                    certification: { label: 'Certification', color: '#3b82f6' },
+                                    hackathon: { label: 'Hackathon', color: '#10b981' },
+                                    sports: { label: 'Sports', color: '#f59e0b' },
+                                    competition: { label: 'Competition', color: '#ef4444' },
+                                    cgpa: { label: 'CGPA', color: '#8b5cf6' },
+                                    achievement: { label: 'Achievement', color: '#ec4899' },
+                                }}>
+                                    <BarChart data={student.chartData} margin={{ left: 0, right: 0, top: 8, bottom: 40 }} barCategoryGap="20%">
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                                        <XAxis dataKey="category" tickLine={false} axisLine={false} tickMargin={8} angle={-35} textAnchor="end" height={60} style={{ fontSize: '11px' }}/>
+                                        <YAxis tickLine={false} axisLine={false} width={34} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} />
+                                        <ChartTooltip cursor={{ fill: 'var(--accent)' }} content={<ChartTooltipContent formatter={(value) => [`${value}/10`, 'Avg Score']} />} />
+                                        <Bar dataKey="avgScore" radius={[4, 4, 0, 0]} barSize={20}>
+                                            {student.chartData.map((entry, index) => {
+                                                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                                                return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                                            })}
+                                        </Bar>
+                                    </BarChart>
+                                </ChartContainer>
+                                <div className="grid grid-cols-2 gap-2 mt-3">
+                                    {student.chartData.map((category) => (
+                                        <div key={category.category} className="rounded-2xl bg-secondary/20 p-2 text-center">
+                                            <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{category.category}</p>
+                                            <p className="text-sm font-semibold text-foreground">{category.avgScore}</p>
+                                            <p className="text-[11px] text-muted-foreground">{category.count} items</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+>>>>>>> MMH
             </Card>
 
             <Card className="border-border bg-card p-6">
@@ -524,6 +774,7 @@ export default function MentorAnalyticsPage() {
                 </div>
             </Card>
 
+<<<<<<< HEAD
             <Card className="border-border bg-card p-4">
                 <h2 className="text-lg font-semibold text-foreground mb-3">Detailed Performance Breakdown</h2>
                 <div className="space-y-4">
@@ -565,6 +816,23 @@ export default function MentorAnalyticsPage() {
                                                 ))}
                                             </div>
                                         )}
+=======
+            <Card className="border-border bg-card p-6">
+                <h2 className="text-xl font-semibold text-foreground mb-4">Detailed Performance Breakdown</h2>
+                <div className="space-y-6">
+                    {analyticsData.students.map((student) => (
+                        <div key={student.studentId} className="border border-border rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-medium text-foreground">{student.name}</h3>
+                                <Badge className="bg-primary/20 text-primary">Overall: {student.overallAvg}/10</Badge>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {student.categories.map((cat) => (
+                                    <div key={cat.category} className="text-center p-3 rounded-lg bg-secondary/20">
+                                        <p className="text-sm font-medium text-muted-foreground capitalize">{cat.category}</p>
+                                        <p className="text-lg font-bold text-foreground">{cat.avgScore}/10</p>
+                                        <p className="text-xs text-muted-foreground">{cat.count} entries</p>
+>>>>>>> MMH
                                     </div>
                                 ))}
                             </div>
