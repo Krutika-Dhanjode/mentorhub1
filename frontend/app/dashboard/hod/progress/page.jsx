@@ -48,6 +48,7 @@ export default function HODProgressPage() {
   const [reportRows, setReportRows] = useState([]);
   const [allProgressRows, setAllProgressRows] = useState([]);
   const [selectedMentorId, setSelectedMentorId] = useState('all');
+  const [batchSelectionMode, setBatchSelectionMode] = useState('all');
   const [selectedBatchIds, setSelectedBatchIds] = useState([]);
   const [selectedComparisonCategory, setSelectedComparisonCategory] = useState('overall');
   const [dataLoading, setDataLoading] = useState(true);
@@ -348,9 +349,9 @@ export default function HODProgressPage() {
   }, [batchOptions, selectedMentorId]);
 
   const selectedScopeBatchIds = useMemo(() => {
-    if (selectedBatchIds.length > 0) return selectedBatchIds;
+    if (batchSelectionMode === 'specific' && selectedBatchIds.length > 0) return selectedBatchIds;
     return visibleBatches.map((batch) => batch.id);
-  }, [selectedBatchIds, visibleBatches]);
+  }, [batchSelectionMode, selectedBatchIds, visibleBatches]);
 
   const filteredRows = useMemo(() => {
     return reportRows.filter((row) => {
@@ -533,6 +534,26 @@ export default function HODProgressPage() {
     };
   }, [studentComparisonData]);
 
+  const sixCategoryStudentChartData = useMemo(() => {
+    const categories = ['hackathon', 'certification', 'competition', 'sports', 'achievement', 'cgpa'];
+    return analytics.students.map((student) => {
+      const categoryData = categories.reduce((acc, category) => {
+        const scores = analytics.performance?.[student.studentId]?.categories?.[category] || [];
+        const avgScore =
+          scores.length > 0 ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)) : 0;
+        acc[`${category}Score`] = avgScore;
+        acc[`${category}Count`] = scores.length;
+        return acc;
+      }, {});
+
+      return {
+        name: student.name.split(' ').slice(0, 2).join(' '),
+        fullName: student.name,
+        ...categoryData,
+      };
+    });
+  }, [analytics.performance, analytics.students]);
+
   const summaryStats = useMemo(() => {
     const totalEntries = scopedProgressRows.length;
     const verifiedEntries = scopedProgressRows.filter(
@@ -546,6 +567,12 @@ export default function HODProgressPage() {
     const visibleBatchIds = new Set(visibleBatches.map((batch) => batch.id));
     setSelectedBatchIds((current) => current.filter((id) => visibleBatchIds.has(id)));
   }, [visibleBatches]);
+
+  useEffect(() => {
+    if (batchSelectionMode === 'all') {
+      setSelectedBatchIds([]);
+    }
+  }, [batchSelectionMode]);
 
   const toggleBatchSelection = (batchId, checked) => {
     setSelectedBatchIds((current) => {
@@ -619,7 +646,7 @@ export default function HODProgressPage() {
       </div>
 
       <Card className="p-3 border-border space-y-3 max-w-full overflow-hidden">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_220px_minmax(0,1fr)]">
           <div className="space-y-2">
             <Label>Mentor</Label>
             <Select value={selectedMentorId} onValueChange={setSelectedMentorId}>
@@ -637,6 +664,19 @@ export default function HODProgressPage() {
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <Label>Batch Scope</Label>
+            <Select value={batchSelectionMode} onValueChange={setBatchSelectionMode}>
+              <SelectTrigger className="h-9 bg-card border-border">
+                <SelectValue placeholder="Select batch scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Batches</SelectItem>
+                <SelectItem value="specific">Particular Batches</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Batches (checkbox filter)</Label>
@@ -645,7 +685,9 @@ export default function HODProgressPage() {
               </Button>
             </div>
             <div className="max-h-24 overflow-y-auto overflow-x-hidden rounded-md border border-border p-1.5">
-              {visibleBatches.length === 0 ? (
+              {batchSelectionMode === 'all' ? (
+                <p className="text-xs text-muted-foreground px-1 py-1">All visible batches are selected.</p>
+              ) : visibleBatches.length === 0 ? (
                 <p className="text-xs text-muted-foreground px-1 py-1">No batches available for this mentor.</p>
               ) : (
                 <div className="grid grid-cols-1 gap-1.5">
@@ -665,7 +707,9 @@ export default function HODProgressPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              No checkbox selected means all visible batches are included.
+              {batchSelectionMode === 'all'
+                ? 'Switch to Particular Batches to choose specific batches.'
+                : 'No checkbox selected means all visible batches are included.'}
             </p>
           </div>
         </div>
@@ -806,6 +850,61 @@ export default function HODProgressPage() {
             </div>
           </div>
         )}
+      </Card>
+
+      <Card className="border-border bg-card p-4 max-w-full overflow-hidden">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Student-wise Category Comparison</h2>
+          <p className="text-xs text-muted-foreground">
+            6 bars per student: Hackathon, Certification, Competition, Sports, Achievement, CGPA.
+          </p>
+        </div>
+        <ChartContainer
+          className="h-[420px] w-full"
+          config={{
+            hackathonScore: { label: 'Hackathon', color: '#16a34a' },
+            certificationScore: { label: 'Certification', color: '#9333ea' },
+            competitionScore: { label: 'Competition', color: '#ef4444' },
+            sportsScore: { label: 'Sports', color: '#f472b6' },
+            achievementScore: { label: 'Achievement', color: '#1d4ed8' },
+            cgpaScore: { label: 'CGPA', color: '#f59e0b' },
+          }}
+        >
+          <BarChart data={sixCategoryStudentChartData} margin={{ left: 12, right: 12, top: 8, bottom: 64 }} barCategoryGap="22%">
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="name"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              angle={-35}
+              textAnchor="end"
+              height={72}
+              style={{ fontSize: '11px' }}
+            />
+            <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} />
+            <ChartTooltip
+              cursor={{ fill: 'var(--accent)' }}
+              content={
+                <ChartTooltipContent
+                  labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                  formatter={(value, name, item) => {
+                    const dataKey = item?.dataKey || '';
+                    const categoryPrefix = String(dataKey).replace('Score', '');
+                    const count = item?.payload?.[`${categoryPrefix}Count`] ?? 0;
+                    return [`${value}/10 (Count: ${count})`, String(name)];
+                  }}
+                />
+              }
+            />
+            <Bar dataKey="hackathonScore" name="Hackathon" fill="#16a34a" radius={[3, 3, 0, 0]} barSize={14} />
+            <Bar dataKey="certificationScore" name="Certification" fill="#9333ea" radius={[3, 3, 0, 0]} barSize={14} />
+            <Bar dataKey="competitionScore" name="Competition" fill="#ef4444" radius={[3, 3, 0, 0]} barSize={14} />
+            <Bar dataKey="sportsScore" name="Sports" fill="#f472b6" radius={[3, 3, 0, 0]} barSize={14} />
+            <Bar dataKey="achievementScore" name="Achievement" fill="#1d4ed8" radius={[3, 3, 0, 0]} barSize={14} />
+            <Bar dataKey="cgpaScore" name="CGPA" fill="#f59e0b" radius={[3, 3, 0, 0]} barSize={14} />
+          </BarChart>
+        </ChartContainer>
       </Card>
 
       <Card className="p-4 border-border max-w-full overflow-hidden">

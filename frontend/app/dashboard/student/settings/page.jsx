@@ -408,6 +408,7 @@ export default function StudentSettingsPage() {
           </Section>
 
           <Section title="Student Information">
+            <p className="text-xs text-muted-foreground mb-4 italic">* If any field is not applicable to you, please write "NA"</p>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {renderInput('name', 'Name in full')}
               {renderInput('admissionDate', 'Admission date', { type: 'date' })}

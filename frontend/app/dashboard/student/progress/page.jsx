@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, TrendingUp, Award, FileText, Upload, Paperclip, Trash2 } from 'lucide-react';
-import { CartesianGrid, Bar, BarChart, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Bar, BarChart, XAxis, YAxis, Cell } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -283,10 +283,27 @@ export default function StudentProgressPage() {
     }, [progress]);
 
     const hasCgpaTrend = cgpaChartData.length > 0;
-    const hasHackathonData = hackathonChartData.length > 0;
-    const hasSportsData = sportsChartData.length > 0;
-    const hasCompetitionData = competitionChartData.length > 0;
-    const hasAchievementData = achievementChartData.length > 0;
+    
+    const summaryChartData = useMemo(() => {
+        const calculateAvg = (type) => {
+            const entries = progress.filter(e => e.certificationType === type && e.mentorScore != null);
+            if (entries.length === 0) return 0;
+            return Number((entries.reduce((acc, e) => acc + e.mentorScore, 0) / entries.length).toFixed(1));
+        };
+
+        const cgpaAvg = cgpaChartData.length > 0 
+            ? Number((cgpaChartData.reduce((acc, e) => acc + e.score, 0) / cgpaChartData.length).toFixed(1)) 
+            : 0;
+
+        return [
+            { name: 'CGPA', count: cgpaCount, avgScore: cgpaAvg, fill: '#3b82f6' },
+            { name: 'Certificates', count: certificationsCount, avgScore: calculateAvg('certification'), fill: '#6366f1' },
+            { name: 'Hackathons', count: hackathonsCount, avgScore: calculateAvg('hackathon'), fill: '#f97316' },
+            { name: 'Sports', count: sportsCount, avgScore: calculateAvg('sports'), fill: '#22c55e' },
+            { name: 'Competitions', count: competitionsCount, avgScore: calculateAvg('competition'), fill: '#a855f7' },
+            { name: 'Achievements', count: achievementsCount, avgScore: calculateAvg('achievement'), fill: '#6366f1' },
+        ];
+    }, [progress, cgpaCount, certificationsCount, hackathonsCount, sportsCount, competitionsCount, achievementsCount, cgpaChartData]);
 
     if (loading || dataLoading) {
         return <p className="text-sm text-muted-foreground p-6">Loading your progress...</p>;
@@ -484,7 +501,7 @@ export default function StudentProgressPage() {
                       `${value}`,
                       'CGPA',
                   ]}/>}/>
-                <Bar dataKey="score" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} animationDuration={700} barSize={24}/>
+                <Bar dataKey="score" fill="#3b82f6" radius={[8, 8, 0, 0]} animationDuration={700} barSize={24}/>
               </BarChart>
             </ChartContainer>
           )}
@@ -540,140 +557,42 @@ export default function StudentProgressPage() {
         </Card>
       </div>
 
-      {/* Activity-specific Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {hasHackathonData && (
-          <Card className="border-border bg-card p-6">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">Hackathon Performance</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your hackathon participation scores.
-                </p>
+      {/* Activity Distribution Summary */}
+      <Card className="border-border bg-card p-6">
+        <div className="mb-5">
+          <h2 className="text-xl font-semibold text-foreground">Activity Distribution</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Total count of entries across all progress categories.
+          </p>
+        </div>
+        <ChartContainer className="h-80 w-full" config={{
+            count: { label: 'Total Entries', color: '#3b82f6' },
+            avgScore: { label: 'Average Score', color: '#3b82f6' }
+        }}>
+          <BarChart data={summaryChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+            <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8}/>
+            <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} />
+            <ChartTooltip content={<ChartTooltipContent formatter={(value, name, entry) => (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-8">
+                  <span className="text-muted-foreground text-xs uppercase">Score</span>
+                  <span className="font-bold text-foreground">{value}</span>
+                </div>
+                <div className="flex items-center justify-between gap-8 border-t border-border pt-1 mt-1">
+                  <span className="text-muted-foreground text-xs uppercase">Entries</span>
+                  <span className="font-bold text-foreground">{entry.payload.count}</span>
+                </div>
               </div>
-              <Badge className="bg-orange-500/20 text-orange-600">
-                {hackathonChartData.length} entries
-              </Badge>
-            </div>
-            <ChartContainer className="h-48 w-full" config={{
-                  score: {
-                      label: 'Score',
-                      color: 'hsl(25, 95%, 53%)',
-                  },
-              }}>
-              <BarChart data={hackathonChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
-                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
-                      `${value}/10`,
-                      'Score',
-                  ]}/>}/>
-                <Bar dataKey="score" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
-              </BarChart>
-            </ChartContainer>
-          </Card>
-        )}
-
-        {hasSportsData && (
-          <Card className="border-border bg-card p-6">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">Sports Performance</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your sports activity scores.
-                </p>
-              </div>
-              <Badge className="bg-green-500/20 text-green-600">
-                {sportsChartData.length} entries
-              </Badge>
-            </div>
-            <ChartContainer className="h-48 w-full" config={{
-                  score: {
-                      label: 'Score',
-                      color: 'hsl(142, 76%, 36%)',
-                  },
-              }}>
-              <BarChart data={sportsChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
-                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 2, 4, 6, 8, 10]}/>
-                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
-                      `${value}/10`,
-                      'Score',
-                  ]}/>}/>
-                <Bar dataKey="score" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
-              </BarChart>
-            </ChartContainer>
-          </Card>
-        )}
-
-        {hasCompetitionData && (
-          <Card className="border-border bg-card p-6">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">Competition Performance</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your competition participation scores.
-                </p>
-              </div>
-              <Badge className="bg-purple-500/20 text-purple-600">
-                {competitionChartData.length} entries
-              </Badge>
-            </div>
-            <ChartContainer className="h-48 w-full" config={{
-                  score: {
-                      label: 'Score',
-                      color: 'hsl(262, 83%, 58%)',
-                  },
-              }}>
-              <BarChart data={competitionChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
-                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent formatter={(value) => [
-                      `${value}/10`,
-                      'Score',
-                  ]}/>}/>
-                <Bar dataKey="score" fill="hsl(262, 83%, 58%)" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
-              </BarChart>
-            </ChartContainer>
-          </Card>
-        )}
-
-        {hasAchievementData && (
-          <Card className="border-border bg-card p-6">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">Achievement Scores</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your general achievement scores.
-                </p>
-              </div>
-              <Badge className="bg-secondary text-foreground">
-                {achievementChartData.length} entries
-              </Badge>
-            </div>
-            <ChartContainer className="h-48 w-full" config={{
-                  score: {
-                      label: 'Score',
-                      color: 'hsl(var(--secondary))',
-                  },
-              }}>
-              <BarChart data={achievementChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="2%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8}/>
-                <YAxis tickLine={false} axisLine={false} width={60} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]}/>
-                <ChartTooltip cursor={{ stroke: 'var(--color-border)', strokeWidth: 1 }} content={<ChartTooltipContent labelFormatter={(_, payload) => payload?.[0]?.payload?.label || 'Achievement'} formatter={(value) => [
-                      `${value}/10`,
-                      'Score',
-                  ]}/>}/>
-                <Bar dataKey="score" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} animationDuration={700} barSize={20}/>
-              </BarChart>
-            </ChartContainer>
-          </Card>
-        )}
-      </div>
+            )} />} />
+            <Bar dataKey="avgScore" name="Score" radius={[4, 4, 0, 0]} barSize={40}>
+              {summaryChartData.map((entry, index) => (
+                <Cell key={`cell-avg-${index}`} fill={entry.fill} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      </Card>
 
       <Card className="border-border">
         <div className="p-6">
