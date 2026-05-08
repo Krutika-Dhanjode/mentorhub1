@@ -314,7 +314,7 @@ function CgpaChart({ progressEntries }) {
     const cgpaData = useMemo(() => {
         return progressEntries
             .filter(entry => {
-                const type = entry.entry_type || entry.certification_type || '';
+                const type = String(entry.entry_type || entry.certification_type || '').trim().toLowerCase();
                 return type === 'marks' || type === 'cgpa';
             })
             .filter(entry => entry.score != null)

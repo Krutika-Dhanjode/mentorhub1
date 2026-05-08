@@ -31,6 +31,7 @@ export default function StudentProgressPage() {
         type: '',
         title: '',
         description: '',
+        cgpa: '',
         certificationType: '',
     });
 
@@ -55,10 +56,11 @@ export default function StudentProgressPage() {
             return;
         }
         const formattedEntries = (data || []).map((entry) => {
-            const typeValue = entry.entry_type || entry.certification_type || 'achievement';
+            const rawTypeValue = entry.entry_type || entry.certification_type || 'achievement';
+            const typeValue = String(rawTypeValue).trim().toLowerCase();
             const certificationType = typeValue === 'marks' ? 'cgpa'
                 : typeValue === 'skill' || typeValue === 'certification' ? 'certification'
-                : ['hackathon', 'sports', 'competition', 'achievement'].includes(typeValue)
+                : ['cgpa', 'hackathon', 'sports', 'competition', 'achievement'].includes(typeValue)
                     ? typeValue
                     : 'achievement';
             const isCgpa = certificationType === 'cgpa';
@@ -98,6 +100,18 @@ export default function StudentProgressPage() {
     const handleAddProgress = async () => {
         if (!user || !newEntry.type || !newEntry.title || !newEntry.description)
             return;
+        const isCgpaEntry = newEntry.type === 'cgpa';
+        const parsedCgpa = isCgpaEntry ? Number(newEntry.cgpa) : null;
+        if (isCgpaEntry) {
+            if (!Number.isFinite(parsedCgpa)) {
+                toast.error('Please enter a valid CGPA value.');
+                return;
+            }
+            if (parsedCgpa < 0 || parsedCgpa > 10) {
+                toast.error('CGPA must be between 0 and 10.');
+                return;
+            }
+        }
         setIsSaving(true);
         let attachmentUrl = '';
         let attachmentName = '';
@@ -129,8 +143,8 @@ export default function StudentProgressPage() {
             entry_type: newEntry.type,
             title: newEntry.title,
             description: newEntry.description,
-            score: null,
-            value_text: null,
+            score: isCgpaEntry ? Number(parsedCgpa.toFixed(2)) : null,
+            value_text: isCgpaEntry ? parsedCgpa.toFixed(2) : null,
             attachments: attachmentUrl ? [attachmentUrl] : [],
             attachment_names: attachmentName ? [attachmentName] : [],
         });
@@ -139,7 +153,7 @@ export default function StudentProgressPage() {
             setIsSaving(false);
             return;
         }
-        setNewEntry({ type: '', title: '', description: '', certificationType: '' });
+        setNewEntry({ type: '', title: '', description: '', cgpa: '', certificationType: '' });
         setSelectedFile(null);
         setIsAddOpen(false);
         setIsSaving(false);
@@ -358,6 +372,22 @@ export default function StudentProgressPage() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" placeholder="Add the full details of the progress update" value={newEntry.description} onChange={(event) => setNewEntry({ ...newEntry, description: event.target.value })} className="bg-card border-border"/>
               </div>
+              {newEntry.type === 'cgpa' && (
+                <div className="space-y-2">
+                  <Label htmlFor="cgpa">CGPA Score (0 to 10)</Label>
+                  <Input
+                    id="cgpa"
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.01"
+                    placeholder="e.g. 8.45"
+                    value={newEntry.cgpa}
+                    onChange={(event) => setNewEntry({ ...newEntry, cgpa: event.target.value })}
+                    className="bg-card border-border"
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="attachment">Upload Certificate / Document</Label>
@@ -371,10 +401,14 @@ export default function StudentProgressPage() {
                 <Button variant="outline" onClick={() => {
             setIsAddOpen(false);
             setSelectedFile(null);
+            setNewEntry({ type: '', title: '', description: '', cgpa: '', certificationType: '' });
         }}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddProgress} disabled={isSaving || !newEntry.type || !newEntry.title || !newEntry.description}>
+                <Button
+                  onClick={handleAddProgress}
+                  disabled={isSaving || !newEntry.type || !newEntry.title || !newEntry.description || (newEntry.type === 'cgpa' && !newEntry.cgpa)}
+                >
                   {isSaving ? 'Saving...' : 'Save Entry'}
                 </Button>
               </div>
@@ -640,7 +674,7 @@ export default function StudentProgressPage() {
                     </TableCell>
                     <TableCell>
                       {entry.mentorScore ? (
-                        <Badge className="bg-blue-500/20 text-blue-600">
+                        <Badge className="bg-blue-500/30 text-blue-700 border border-blue-400/60 font-bold text-base px-3 py-1 shadow-sm">
                           {entry.mentorScore}/10
                         </Badge>
                       ) : entry.certificationType === 'cgpa' ? (
