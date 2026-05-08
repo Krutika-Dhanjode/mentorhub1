@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Ban, ClipboardCheck } from "lucide-react";
+import { Plus, Pencil, Ban, ClipboardCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,10 +21,17 @@ export default function MentorMeetingsPage() {
     const [editingMeetingId, setEditingMeetingId] = useState(null);
     const [savingMeeting, setSavingMeeting] = useState(false);
     const [cancellingMeetingId, setCancellingMeetingId] = useState(null);
+    const [deletingMeetingId, setDeletingMeetingId] = useState(null);
     const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
     const [attendanceMeeting, setAttendanceMeeting] = useState(null);
     const [attendanceStudents, setAttendanceStudents] = useState([]);
     const [attendanceByStudent, setAttendanceByStudent] = useState({});
+    const [reasonByStudent, setReasonByStudent] = useState({});
+    const [reasonStatusByStudent, setReasonStatusByStudent] = useState({});
+    const [reasonFileUrlByStudent, setReasonFileUrlByStudent] = useState({});
+    const [reasonFileNameByStudent, setReasonFileNameByStudent] = useState({});
+    const [reasonReviewOpen, setReasonReviewOpen] = useState(false);
+    const [selectedReasonStudentId, setSelectedReasonStudentId] = useState(null);
     const [attendanceLoading, setAttendanceLoading] = useState(false);
     const [attendanceSaving, setAttendanceSaving] = useState(false);
     const [lastSentTime, setLastSentTime] = useState("");
@@ -114,7 +121,14 @@ export default function MentorMeetingsPage() {
         if (!user)
             return;
         setSavingMeeting(true);
-        const datetime = new Date(`${newMeeting.date} ${newMeeting.time}`);
+        const [year, month, day] = newMeeting.date.split("-").map((value) => Number(value));
+        const [hour, minute] = newMeeting.time.split(":").map((value) => Number(value));
+        const datetime = new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0);
+        if (Number.isNaN(datetime.getTime())) {
+            setSavingMeeting(false);
+            toast.error("Invalid date/time selected.");
+            return;
+        }
         const selectedBatch = batches.find((batch) => batch.id === newMeeting.batch);
         const [meetingVenue = "", ...agendaParts] = (newMeeting.venue || "").split(" - ");
         const description = newMeeting.agenda
@@ -260,6 +274,26 @@ export default function MentorMeetingsPage() {
         }
         toast.success("Meeting cancelled and email notification sent.");
     };
+    const handleDeleteMeeting = async (meeting) => {
+        if (!user)
+            return;
+        const confirmed = window.confirm(`Delete past meeting "${meeting.title}" permanently?`);
+        if (!confirmed)
+            return;
+        setDeletingMeetingId(meeting.id);
+        const { error } = await supabase
+            .from("meetings")
+            .delete()
+            .eq("id", meeting.id)
+            .eq("mentor_id", user.id);
+        setDeletingMeetingId(null);
+        if (error) {
+            toast.error("Unable to delete meeting: " + error.message);
+            return;
+        }
+        await fetchMeetings();
+        toast.success("Meeting deleted successfully.");
+    };
     const openAttendanceDialog = async (meeting) => {
         if (!meeting.batchId) {
             toast.success("This meeting is not linked to a batch.");
@@ -302,7 +336,7 @@ export default function MentorMeetingsPage() {
         });
         const { data: attendanceRows, error: attendanceError } = await supabase
             .from("meeting_attendance")
-            .select("student_id, present")
+            .select("student_id, present, absent_reason, absent_reason_status, absent_reason_file_url, absent_reason_file_name")
             .eq("meeting_id", meeting.id);
         if (attendanceError) {
             setAttendanceLoading(false);
@@ -310,14 +344,30 @@ export default function MentorMeetingsPage() {
             return;
         }
         const initialAttendance = {};
+        const initialReasons = {};
+        const initialReasonStatus = {};
+        const initialReasonFileUrls = {};
+        const initialReasonFileNames = {};
         formattedStudents.forEach((student) => {
             initialAttendance[student.id] = false;
+            initialReasons[student.id] = "";
+            initialReasonStatus[student.id] = "pending";
+            initialReasonFileUrls[student.id] = "";
+            initialReasonFileNames[student.id] = "";
         });
         (attendanceRows || []).forEach((row) => {
             initialAttendance[row.student_id] = Boolean(row.present);
+            initialReasons[row.student_id] = row.absent_reason || "";
+            initialReasonStatus[row.student_id] = row.absent_reason_status || "pending";
+            initialReasonFileUrls[row.student_id] = row.absent_reason_file_url || "";
+            initialReasonFileNames[row.student_id] = row.absent_reason_file_name || "";
         });
         setAttendanceStudents(formattedStudents);
         setAttendanceByStudent(initialAttendance);
+        setReasonByStudent(initialReasons);
+        setReasonStatusByStudent(initialReasonStatus);
+        setReasonFileUrlByStudent(initialReasonFileUrls);
+        setReasonFileNameByStudent(initialReasonFileNames);
         setAttendanceLoading(false);
     };
     const handleSaveAttendance = async () => {
@@ -329,6 +379,10 @@ export default function MentorMeetingsPage() {
             student_id: student.id,
             mentor_id: user.id,
             present: Boolean(attendanceByStudent[student.id]),
+            absent_reason: reasonByStudent[student.id] || null,
+            absent_reason_status: reasonStatusByStudent[student.id] || "pending",
+            absent_reason_file_url: reasonFileUrlByStudent[student.id] || null,
+            absent_reason_file_name: reasonFileNameByStudent[student.id] || null,
             marked_by: user.id,
             marked_at: new Date().toISOString(),
         }));
@@ -342,6 +396,10 @@ export default function MentorMeetingsPage() {
         }
         setAttendanceDialogOpen(false);
         toast.success("Attendance saved successfully.");
+    };
+    const openReasonReview = (studentId) => {
+        setSelectedReasonStudentId(studentId);
+        setReasonReviewOpen(true);
     };
     const upcomingMeetings = meetings.filter((meeting) => {
         const scheduledDate = new Date(meeting.scheduledAt);
@@ -477,6 +535,22 @@ export default function MentorMeetingsPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">{meeting.description}</p>
                 <p className="text-xs text-muted-foreground">Status: {meeting.status}</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => openAttendanceDialog(meeting)}>
+                    <ClipboardCheck className="w-4 h-4"/>
+                    Attendance
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => handleDeleteMeeting(meeting)}
+                    disabled={deletingMeetingId === meeting.id}
+                  >
+                    <Trash2 className="w-4 h-4"/>
+                    {deletingMeetingId === meeting.id ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
               </div>
             </Card>)))}
       </div>
@@ -491,18 +565,69 @@ export default function MentorMeetingsPage() {
           </DialogHeader>
           {attendanceLoading ? (<p className="text-sm text-muted-foreground">Loading batch students...</p>) : attendanceStudents.length === 0 ? (<p className="text-sm text-muted-foreground">No students found in this batch.</p>) : (<div className="space-y-4">
               <div className="max-h-80 overflow-y-auto rounded-md border">
-                {attendanceStudents.map((student) => (<label key={student.id} className="flex items-center justify-between gap-4 border-b px-3 py-2 last:border-b-0">
-                    <div>
+                {attendanceStudents.map((student) => (<div key={student.id} className="flex flex-col gap-2 border-b px-3 py-2 last:border-b-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
                       <p className="text-sm font-medium">{student.name}</p>
                       <p className="text-xs text-muted-foreground">
                         PRN: {student.prn} {student.email ? `| ${student.email}` : ""}
                       </p>
-                    </div>
-                    <input type="checkbox" checked={Boolean(attendanceByStudent[student.id])} onChange={(event) => setAttendanceByStudent((current) => ({
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {reasonByStudent[student.id] ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => openReasonReview(student.id)}
+                          >
+                            Reason
+                          </Button>
+                        ) : null}
+                        <input type="checkbox" checked={Boolean(attendanceByStudent[student.id])} onChange={(event) => setAttendanceByStudent((current) => ({
                 ...current,
                 [student.id]: event.target.checked,
             }))} className="h-4 w-4"/>
-                  </label>))}
+                      </div>
+                    </div>
+                    {reasonByStudent[student.id] ? (
+                      <div className="rounded-md bg-secondary/40 p-2">
+                        <p className="text-xs font-medium text-foreground">Absent Reason</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{reasonByStudent[student.id]}</p>
+                        {reasonFileUrlByStudent[student.id] ? (
+                          <a
+                            href={reasonFileUrlByStudent[student.id]}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-xs text-primary hover:underline"
+                          >
+                            {reasonFileNameByStudent[student.id] || "Open attachment"}
+                          </a>
+                        ) : null}
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={reasonStatusByStudent[student.id] === "accepted" ? "default" : "outline"}
+                            className="h-7 px-2 text-xs"
+                            onClick={() => setReasonStatusByStudent((current) => ({ ...current, [student.id]: "accepted" }))}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={reasonStatusByStudent[student.id] === "rejected" ? "destructive" : "outline"}
+                            className="h-7 px-2 text-xs"
+                            onClick={() => setReasonStatusByStudent((current) => ({ ...current, [student.id]: "rejected" }))}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>))}
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setAttendanceDialogOpen(false)}>
@@ -513,6 +638,53 @@ export default function MentorMeetingsPage() {
                 </Button>
               </div>
             </div>)}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={reasonReviewOpen} onOpenChange={setReasonReviewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Student Absent Reason</DialogTitle>
+          </DialogHeader>
+          {selectedReasonStudentId ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {attendanceStudents.find((s) => s.id === selectedReasonStudentId)?.name || "Student"}
+              </p>
+              <div className="rounded-md bg-secondary/40 p-3">
+                <p className="text-sm text-foreground">
+                  {reasonByStudent[selectedReasonStudentId] || "No reason submitted yet."}
+                </p>
+                {reasonFileUrlByStudent[selectedReasonStudentId] ? (
+                  <a
+                    href={reasonFileUrlByStudent[selectedReasonStudentId]}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block text-sm text-primary hover:underline"
+                  >
+                    {reasonFileNameByStudent[selectedReasonStudentId] || "Open attachment"}
+                  </a>
+                ) : null}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setReasonStatusByStudent((current) => ({ ...current, [selectedReasonStudentId]: "accepted" }))}
+                  disabled={!reasonByStudent[selectedReasonStudentId]}
+                >
+                  Accept
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setReasonStatusByStudent((current) => ({ ...current, [selectedReasonStudentId]: "rejected" }))}
+                  disabled={!reasonByStudent[selectedReasonStudentId]}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>);
