@@ -95,7 +95,6 @@ export default function MentorCertificationsPage() {
             .from('progress')
             .select('*')
             .in('student_id', studentIds)
-            .not('entry_type', 'in', '(cgpa,marks)')
             .order('created_at', { ascending: false });
 
         if (certError) {
@@ -236,6 +235,8 @@ export default function MentorCertificationsPage() {
 
     const getTypeColor = (type) => {
         switch (type) {
+            case 'cgpa':
+                return 'bg-blue-500/20 text-blue-600';
             case 'certification':
                 return 'bg-accent/20 text-accent';
             case 'hackathon':
@@ -407,6 +408,7 @@ export default function MentorCertificationsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="cgpa">CGPA</SelectItem>
                                 <SelectItem value="certification">Certification</SelectItem>
                                 <SelectItem value="hackathon">Hackathon</SelectItem>
                                 <SelectItem value="sports">Sports</SelectItem>

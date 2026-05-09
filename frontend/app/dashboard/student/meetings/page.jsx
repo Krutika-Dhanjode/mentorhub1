@@ -312,17 +312,21 @@ export default function StudentMeetingsPage() {
 
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge className={`${getStatusColor(meeting.status)} px-2 py-0.5 text-xs`}>{meeting.status}</Badge>
-                    <Badge className={`${getAttendanceBadge(meeting.attendancePresent).className} px-2 py-0.5 text-xs`}>
-                      {getAttendanceBadge(meeting.attendancePresent).label}
-                    </Badge>
-                    {meeting.absentReason ? (
-                      <Badge className={`${getReasonStatusBadge(meeting.absentReasonStatus).className} px-2 py-0.5 text-xs`}>
-                        {getReasonStatusBadge(meeting.absentReasonStatus).label}
-                      </Badge>
+                    {meeting.status !== 'Cancelled' ? (
+                      <>
+                        <Badge className={`${getAttendanceBadge(meeting.attendancePresent).className} px-2 py-0.5 text-xs`}>
+                          {getAttendanceBadge(meeting.attendancePresent).label}
+                        </Badge>
+                        {meeting.absentReason ? (
+                          <Badge className={`${getReasonStatusBadge(meeting.absentReasonStatus).className} px-2 py-0.5 text-xs`}>
+                            {getReasonStatusBadge(meeting.absentReasonStatus).label}
+                          </Badge>
+                        ) : null}
+                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openReasonDialog(meeting)}>
+                          Absent Reason
+                        </Button>
+                      </>
                     ) : null}
-                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openReasonDialog(meeting)}>
-                      Absent Reason
-                    </Button>
                   </div>
                 </div>
               </Card>))}
@@ -353,17 +357,21 @@ export default function StudentMeetingsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge className={`${getStatusColor(meeting.status)} px-2 py-0.5 text-xs`}>{meeting.status}</Badge>
-                    <Badge className={`${getAttendanceBadge(meeting.attendancePresent).className} px-2 py-0.5 text-xs`}>
-                      {getAttendanceBadge(meeting.attendancePresent).label}
-                    </Badge>
-                    {meeting.absentReason ? (
-                      <Badge className={`${getReasonStatusBadge(meeting.absentReasonStatus).className} px-2 py-0.5 text-xs`}>
-                        {getReasonStatusBadge(meeting.absentReasonStatus).label}
-                      </Badge>
+                    {meeting.status !== 'Cancelled' ? (
+                      <>
+                        <Badge className={`${getAttendanceBadge(meeting.attendancePresent).className} px-2 py-0.5 text-xs`}>
+                          {getAttendanceBadge(meeting.attendancePresent).label}
+                        </Badge>
+                        {meeting.absentReason ? (
+                          <Badge className={`${getReasonStatusBadge(meeting.absentReasonStatus).className} px-2 py-0.5 text-xs`}>
+                            {getReasonStatusBadge(meeting.absentReasonStatus).label}
+                          </Badge>
+                        ) : null}
+                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openReasonDialog(meeting)}>
+                          Absent Reason
+                        </Button>
+                      </>
                     ) : null}
-                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openReasonDialog(meeting)}>
-                      Absent Reason
-                    </Button>
                   </div>
                 </div>
               </Card>))}

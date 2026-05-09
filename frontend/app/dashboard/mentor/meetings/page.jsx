@@ -71,7 +71,9 @@ export default function MentorMeetingsPage() {
             .select("*")
             .eq("mentor_id", user.id)
             .order("scheduled_at", { ascending: true });
-        const formatted = (data || []).map((meeting) => ({
+        const formatted = (data || [])
+            .filter((meeting) => (meeting.status || "Scheduled").toLowerCase() !== "cancelled")
+            .map((meeting) => ({
             id: meeting.id,
             batchId: meeting.batch_id ?? null,
             batch: meeting.batch ||
@@ -218,20 +220,10 @@ export default function MentorMeetingsPage() {
     const handleCancelMeeting = async (meeting) => {
         if (!user)
             return;
-        const confirmed = window.confirm(`Cancel meeting "${meeting.title}" scheduled on ${meeting.date} at ${meeting.time}?`);
+        const confirmed = window.confirm(`Cancel meeting "${meeting.title}" scheduled on ${meeting.date} at ${meeting.time}? This will remove it from the dashboard.`);
         if (!confirmed)
             return;
         setCancellingMeetingId(meeting.id);
-        const { error } = await supabase
-            .from("meetings")
-            .update({ status: "Cancelled" })
-            .eq("id", meeting.id)
-            .eq("mentor_id", user.id);
-        setCancellingMeetingId(null);
-        if (error) {
-            toast.error("Unable to cancel meeting: " + error.message);
-            return;
-        }
         let failedEmails = 0;
         if (meeting.batchId) {
             const { data: assignments, error: assignmentError } = await supabase
@@ -267,12 +259,31 @@ export default function MentorMeetingsPage() {
                 }
             }
         }
-        await fetchMeetings();
-        if (failedEmails > 0) {
-            toast.error(`Meeting cancelled, but ${failedEmails} cancellation email(s) failed to send.`);
+        const { error: attendanceDeleteError } = await supabase
+            .from("meeting_attendance")
+            .delete()
+            .eq("meeting_id", meeting.id);
+        if (attendanceDeleteError) {
+            setCancellingMeetingId(null);
+            toast.error("Unable to remove meeting attendance: " + attendanceDeleteError.message);
             return;
         }
-        toast.success("Meeting cancelled and email notification sent.");
+        const { error } = await supabase
+            .from("meetings")
+            .delete()
+            .eq("id", meeting.id)
+            .eq("mentor_id", user.id);
+        setCancellingMeetingId(null);
+        if (error) {
+            toast.error("Unable to cancel meeting: " + error.message);
+            return;
+        }
+        await fetchMeetings();
+        if (failedEmails > 0) {
+            toast.error(`Meeting deleted, but ${failedEmails} cancellation email(s) failed to send.`);
+            return;
+        }
+        toast.success("Meeting cancelled, deleted, and notification sent.");
     };
     const handleDeleteMeeting = async (meeting) => {
         if (!user)

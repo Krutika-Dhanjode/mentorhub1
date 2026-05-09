@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, TrendingUp, Award, FileText, Upload, Paperclip, Trash2 } from 'lucide-react';
+import { Plus, TrendingUp, Award, FileText, Upload, Paperclip, Trash2, Users } from 'lucide-react';
 import { CartesianGrid, Bar, BarChart, XAxis, YAxis, Cell } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,6 +27,9 @@ export default function StudentProgressPage() {
     const [deletingEntryId, setDeletingEntryId] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [selectedFile, setSelectedFile] = useState(null);
+    const [categoryComparisonData, setCategoryComparisonData] = useState([]);
+    const [peerStudentCount, setPeerStudentCount] = useState(0);
+    const [peerNames, setPeerNames] = useState([]);
     const [newEntry, setNewEntry] = useState({
         type: '',
         title: '',
@@ -83,6 +86,159 @@ export default function StudentProgressPage() {
             };
         });
         setProgress(formattedEntries);
+
+        const normalizeComparisonCategory = (row) => {
+            const rawType = row.entry_type || row.certification_type || 'achievement';
+            const value = String(rawType).trim().toLowerCase();
+            if (value === 'marks' || value === 'cgpa') return 'cgpa';
+            if (value === 'skill' || value === 'certification') return 'certification';
+            if (['hackathon', 'sports', 'competition', 'achievement'].includes(value)) return value;
+            return 'achievement';
+        };
+
+        const { data: ownAssignments, error: ownAssignmentsError } = await supabase
+            .from('batch_students')
+            .select('batch_id')
+            .eq('student_id', user.id);
+
+        if (ownAssignmentsError) {
+            console.error('Error fetching student batch assignments:', ownAssignmentsError.message);
+            setCategoryComparisonData([]);
+            setPeerStudentCount(0);
+            setDataLoading(false);
+            return;
+        }
+
+        const batchIds = Array.from(new Set((ownAssignments || []).map((row) => row.batch_id).filter(Boolean)));
+        if (batchIds.length === 0) {
+            setCategoryComparisonData([]);
+            setPeerStudentCount(0);
+            setDataLoading(false);
+            return;
+        }
+
+        const { data: peerAssignments, error: peerAssignmentsError } = await supabase
+            .from('batch_students')
+            .select('student_id')
+            .in('batch_id', batchIds);
+
+        if (peerAssignmentsError) {
+            console.error('Error fetching peer assignments:', peerAssignmentsError.message);
+            setCategoryComparisonData([]);
+            setPeerStudentCount(0);
+            setDataLoading(false);
+            return;
+        }
+
+        const cohortStudentIds = Array.from(new Set((peerAssignments || []).map((row) => row.student_id).filter(Boolean)));
+        if (cohortStudentIds.length === 0) {
+            setCategoryComparisonData([]);
+            setPeerStudentCount(0);
+            setDataLoading(false);
+            return;
+        }
+
+        const { data: cohortProgressRows, error: cohortProgressError } = await supabase
+            .from('progress')
+            .select('student_id, entry_type, certification_type, score, verification_status')
+            .in('student_id', cohortStudentIds);
+
+        if (cohortProgressError) {
+            console.error('Error fetching cohort progress:', cohortProgressError.message);
+            setCategoryComparisonData([]);
+            setPeerStudentCount(0);
+            setDataLoading(false);
+            return;
+        }
+
+        const categories = ['cgpa', 'certification', 'hackathon', 'sports', 'competition', 'achievement'];
+        const statsByStudent = new Map();
+        cohortStudentIds.forEach((studentId) => {
+            statsByStudent.set(studentId, categories.reduce((acc, cat) => {
+                acc[cat] = { total: 0, count: 0 };
+                return acc;
+            }, {}));
+        });
+
+        (cohortProgressRows || []).forEach((row) => {
+            const studentStats = statsByStudent.get(row.student_id);
+            if (!studentStats) return;
+            const category = normalizeComparisonCategory(row);
+            const scoreValue = row.score != null ? Number(row.score) : null;
+            if (scoreValue == null || Number.isNaN(scoreValue)) return;
+            const isValid = category === 'cgpa' || row.verification_status === 'verified';
+            if (!isValid) return;
+            studentStats[category].total += scoreValue;
+            studentStats[category].count += 1;
+        });
+
+        const peerIds = cohortStudentIds.filter((id) => id !== user.id);
+        setPeerStudentCount(peerIds.length);
+
+        let peerNamesList = [];
+        const peerNameById = new Map();
+        if (peerIds.length > 0) {
+            const { data: peerUsers, error: peerUsersError } = await supabase
+                .from('users')
+                .select('id, name')
+                .in('id', peerIds);
+            if (peerUsersError) {
+                console.error('Error fetching peer names:', peerUsersError.message);
+                setPeerNames([]);
+            } else {
+                (peerUsers || []).forEach((row) => {
+                    peerNameById.set(row.id, row.name || 'Unknown');
+                });
+                peerNamesList = (peerUsers || [])
+                    .map((row) => row.name)
+                    .filter(Boolean)
+                    .sort((a, b) => a.localeCompare(b));
+                setPeerNames(peerNamesList);
+            }
+        } else {
+            setPeerNames([]);
+        }
+
+        const comparisonRows = [
+            { key: 'cgpa', label: 'CGPA', yourFill: '#2563eb', peersFill: '#93c5fd' },
+            { key: 'certification', label: 'Certification', yourFill: '#7c3aed', peersFill: '#c4b5fd' },
+            { key: 'hackathon', label: 'Hackathon', yourFill: '#ea580c', peersFill: '#fdba74' },
+            { key: 'sports', label: 'Sports', yourFill: '#16a34a', peersFill: '#86efac' },
+            { key: 'competition', label: 'Competition', yourFill: '#db2777', peersFill: '#f9a8d4' },
+            { key: 'achievement', label: 'Achievement', yourFill: '#0891b2', peersFill: '#67e8f9' },
+        ].map(({ key, label, yourFill, peersFill }) => {
+            const yourStats = statsByStudent.get(user.id)?.[key] || { total: 0, count: 0 };
+            const yourAvg = yourStats.count > 0 ? Number((yourStats.total / yourStats.count).toFixed(1)) : 0;
+
+            let peerTotal = 0;
+            let peerCount = 0;
+            let peerStudentsWithData = 0;
+            const peerBreakdownList = [];
+            peerIds.forEach((peerId) => {
+                const peerStats = statsByStudent.get(peerId)?.[key];
+                if (!peerStats || peerStats.count === 0) return;
+                peerTotal += peerStats.total;
+                peerCount += peerStats.count;
+                peerStudentsWithData += 1;
+                const peerAvg = Number((peerStats.total / peerStats.count).toFixed(1));
+                peerBreakdownList.push(`${peerNameById.get(peerId) || 'Unknown'}: ${peerAvg}`);
+            });
+
+            const peersAvg = peerCount > 0 ? Number((peerTotal / peerCount).toFixed(1)) : 0;
+            return {
+                category: label,
+                yourScore: yourAvg,
+                peersScore: peersAvg,
+                yourCount: yourStats.count,
+                peerStudentsWithData,
+                peerNamesText: peerStudentsWithData > 0 ? peerNamesList.join(', ') : 'No peer data yet',
+                peerBreakdownText: peerBreakdownList.length > 0 ? peerBreakdownList.join(' | ') : 'No peer data yet',
+                yourFill,
+                peersFill,
+            };
+        });
+
+        setCategoryComparisonData(comparisonRows);
         setDataLoading(false);
     };
 
@@ -590,6 +746,69 @@ export default function StudentProgressPage() {
           </div>
         </Card>
       </div>
+
+      {/* Activity Distribution Summary */}
+      <Card className="border-border bg-card p-6">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Category-wise Comparison</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Compare your category scores with other students in your batch.
+            </p>
+          </div>
+          <Badge className="bg-blue-500/10 text-blue-700">
+            <Users className="h-3.5 w-3.5 mr-1" />
+            {peerStudentCount} peers
+          </Badge>
+        </div>
+        {peerNames.length > 0 ? (
+          <p className="mb-3 text-xs text-muted-foreground">
+            Peers: {peerNames.join(', ')}
+          </p>
+        ) : null}
+        {categoryComparisonData.length === 0 ? (
+          <div className="flex h-56 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/20 text-sm text-muted-foreground">
+            Join a batch and add progress entries to see comparison with other students.
+          </div>
+        ) : (
+          <ChartContainer className="h-80 w-full" config={{
+            yourScore: { label: 'You', color: '#0ea5e9' },
+            peersScore: { label: 'Others Avg', color: '#94a3b8' },
+          }}>
+            <BarChart data={categoryComparisonData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }} barCategoryGap="18%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="category" tickLine={false} axisLine={false} tickMargin={8} />
+              <YAxis tickLine={false} axisLine={false} width={44} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name, item) => {
+                      const isYou = item?.dataKey === 'yourScore';
+                      const key = isYou ? 'yourCount' : 'peerStudentsWithData';
+                      const extra = item?.payload?.[key] ?? 0;
+                      if (isYou) {
+                        return [`${value}/10 (Your entries: ${extra})`, String(name)];
+                      }
+                      const peersLabel = item?.payload?.peerBreakdownText || 'No peer data yet';
+                      return [`${value}/10 (Peers with data: ${extra}) | ${peersLabel}`, String(name)];
+                    }}
+                  />
+                }
+              />
+              <Bar dataKey="yourScore" name="You" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={20}>
+                {categoryComparisonData.map((entry, index) => (
+                  <Cell key={`your-cell-${index}`} fill={entry.yourFill || '#2563eb'} />
+                ))}
+              </Bar>
+              <Bar dataKey="peersScore" name="Others Avg" fill="#93c5fd" radius={[4, 4, 0, 0]} barSize={20}>
+                {categoryComparisonData.map((entry, index) => (
+                  <Cell key={`peers-cell-${index}`} fill={entry.peersFill || '#93c5fd'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
+      </Card>
 
       {/* Activity Distribution Summary */}
       <Card className="border-border bg-card p-6">
