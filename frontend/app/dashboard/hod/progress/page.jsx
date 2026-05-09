@@ -415,6 +415,8 @@ export default function HODProgressPage() {
         if (scoreValue != null && !Number.isNaN(scoreValue)) {
           categoryStats[category].totalScore += scoreValue;
           performance[entry.student_id].categories.cgpa.push(scoreValue);
+          performance[entry.student_id].overall.totalScore += scoreValue;
+          performance[entry.student_id].overall.count++;
         }
       } else if (entry.verification_status === 'verified') {
         categoryStats[category].verified++;
@@ -553,6 +555,12 @@ export default function HODProgressPage() {
       };
     });
   }, [analytics.performance, analytics.students]);
+
+  const detailedComparisonChartWidth = useMemo(() => {
+    const minWidth = 960;
+    const widthPerStudent = 170;
+    return Math.max(minWidth, sixCategoryStudentChartData.length * widthPerStudent);
+  }, [sixCategoryStudentChartData.length]);
 
   const summaryStats = useMemo(() => {
     const totalEntries = scopedProgressRows.length;
@@ -859,52 +867,55 @@ export default function HODProgressPage() {
             6 bars per student: Hackathon, Certification, Competition, Sports, Achievement, CGPA.
           </p>
         </div>
-        <ChartContainer
-          className="h-[420px] w-full"
-          config={{
-            hackathonScore: { label: 'Hackathon', color: '#16a34a' },
-            certificationScore: { label: 'Certification', color: '#9333ea' },
-            competitionScore: { label: 'Competition', color: '#ef4444' },
-            sportsScore: { label: 'Sports', color: '#f472b6' },
-            achievementScore: { label: 'Achievement', color: '#1d4ed8' },
-            cgpaScore: { label: 'CGPA', color: '#f59e0b' },
-          }}
-        >
-          <BarChart data={sixCategoryStudentChartData} margin={{ left: 12, right: 12, top: 8, bottom: 64 }} barCategoryGap="22%">
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="name"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              angle={-35}
-              textAnchor="end"
-              height={72}
-              style={{ fontSize: '11px' }}
-            />
-            <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} />
-            <ChartTooltip
-              cursor={{ fill: 'var(--accent)' }}
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
-                  formatter={(value, name, item) => {
-                    const dataKey = item?.dataKey || '';
-                    const categoryPrefix = String(dataKey).replace('Score', '');
-                    const count = item?.payload?.[`${categoryPrefix}Count`] ?? 0;
-                    return [`${value}/10 (Count: ${count})`, String(name)];
-                  }}
-                />
-              }
-            />
-            <Bar dataKey="hackathonScore" name="Hackathon" fill="#16a34a" radius={[3, 3, 0, 0]} barSize={14} />
-            <Bar dataKey="certificationScore" name="Certification" fill="#9333ea" radius={[3, 3, 0, 0]} barSize={14} />
-            <Bar dataKey="competitionScore" name="Competition" fill="#ef4444" radius={[3, 3, 0, 0]} barSize={14} />
-            <Bar dataKey="sportsScore" name="Sports" fill="#f472b6" radius={[3, 3, 0, 0]} barSize={14} />
-            <Bar dataKey="achievementScore" name="Achievement" fill="#1d4ed8" radius={[3, 3, 0, 0]} barSize={14} />
-            <Bar dataKey="cgpaScore" name="CGPA" fill="#f59e0b" radius={[3, 3, 0, 0]} barSize={14} />
-          </BarChart>
-        </ChartContainer>
+        <div className="w-full overflow-x-auto overflow-y-hidden pb-2">
+          <ChartContainer
+            className="h-[420px]"
+            style={{ width: `${detailedComparisonChartWidth}px`, minWidth: '100%' }}
+            config={{
+              hackathonScore: { label: 'Hackathon', color: '#16a34a' },
+              certificationScore: { label: 'Certification', color: '#9333ea' },
+              competitionScore: { label: 'Competition', color: '#ef4444' },
+              sportsScore: { label: 'Sports', color: '#f472b6' },
+              achievementScore: { label: 'Achievement', color: '#1d4ed8' },
+              cgpaScore: { label: 'CGPA', color: '#f59e0b' },
+            }}
+          >
+            <BarChart data={sixCategoryStudentChartData} margin={{ left: 12, right: 12, top: 8, bottom: 64 }} barCategoryGap="22%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="name"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                angle={-35}
+                textAnchor="end"
+                height={72}
+                style={{ fontSize: '11px' }}
+              />
+              <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} />
+              <ChartTooltip
+                cursor={{ fill: 'var(--accent)' }}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                    formatter={(value, name, item) => {
+                      const dataKey = item?.dataKey || '';
+                      const categoryPrefix = String(dataKey).replace('Score', '');
+                      const count = item?.payload?.[`${categoryPrefix}Count`] ?? 0;
+                      return [`${value}/10 (Count: ${count})`, String(name)];
+                    }}
+                  />
+                }
+              />
+              <Bar dataKey="hackathonScore" name="Hackathon" fill="#16a34a" radius={[3, 3, 0, 0]} barSize={14} />
+              <Bar dataKey="certificationScore" name="Certification" fill="#9333ea" radius={[3, 3, 0, 0]} barSize={14} />
+              <Bar dataKey="competitionScore" name="Competition" fill="#ef4444" radius={[3, 3, 0, 0]} barSize={14} />
+              <Bar dataKey="sportsScore" name="Sports" fill="#f472b6" radius={[3, 3, 0, 0]} barSize={14} />
+              <Bar dataKey="achievementScore" name="Achievement" fill="#1d4ed8" radius={[3, 3, 0, 0]} barSize={14} />
+              <Bar dataKey="cgpaScore" name="CGPA" fill="#f59e0b" radius={[3, 3, 0, 0]} barSize={14} />
+            </BarChart>
+          </ChartContainer>
+        </div>
       </Card>
 
       <Card className="p-4 border-border max-w-full overflow-hidden">

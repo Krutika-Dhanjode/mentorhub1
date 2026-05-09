@@ -148,6 +148,8 @@ export default function MentorAnalyticsPage() {
                     createdAt: entry.created_at,
                     verificationStatus: 'verified',
                 });
+                performance[studentId].overall.totalScore += actualScore;
+                performance[studentId].overall.count++;
             } else if (entry.verification_status === 'verified') {
                 categoryStats[category].verified++;
                 categoryStats[category].totalScore += actualScore;
